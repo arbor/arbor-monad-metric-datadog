@@ -1,0 +1,57 @@
+version: 2.0
+jobs:
+  build:
+    working_directory: ~/project
+    docker:
+      - image: quay.io/haskell_works/stack-build-minimal:2018-01-29
+
+    steps:
+      - checkout
+
+      - run:
+          name: Copying scripts
+          command: |
+            mkdir -p ~/.local/bin
+            cp ./scripts/* ~/.local/bin
+
+      - run:
+          name: Query resolver & ghc version
+          command: |
+            resolver > resolver.version
+            ghc-version $(cat resolver.version) >  ghc.version
+
+      - restore_cache:
+          keys:
+                - stack--{{ checksum "ghc.version" }}--{{ .Environment.CACHE_VERSION }}--{{ checksum "resolver.version" }}--{{ checksum "package.yaml" }}--{{ checksum "stack.yaml" }}
+                - stack--{{ checksum "ghc.version" }}--{{ .Environment.CACHE_VERSION }}--{{ checksum "resolver.version" }}--{{ checksum "package.yaml" }}
+                - stack--{{ checksum "ghc.version" }}--{{ .Environment.CACHE_VERSION }}--{{ checksum "resolver.version" }}
+                - stack--{{ checksum "ghc.version" }}--only
+
+      - run:
+          name: Stack setup
+          command: stack setup
+
+      - save_cache:
+          key:    stack--{{ checksum "ghc.version" }}--only
+          paths:  [~/.stack, ~/project/.stack-work]
+
+      - run:
+          name: Building dependencies
+          command: stack build --only-dependencies
+
+      - save_cache:
+          key:    stack--{{ checksum "ghc.version" }}--{{ .Environment.CACHE_VERSION }}--{{ checksum "resolver.version" }}--{{ checksum "package.yaml" }}
+          paths:  [~/.stack, ~/project/.stack-work]
+
+      - run:
+          name: Compiling
+          command: stack build --test --no-run-tests
+
+      - save_cache:
+          key:    stack--{{ checksum "ghc.version" }}--{{ .Environment.CACHE_VERSION }}--{{ checksum "resolver.version" }}--{{ checksum "package.yaml" }}--{{ checksum "stack.yaml" }}
+          paths:  [~/.stack, ~/project/.stack-work]
+
+      ##### Running tests
+      - run:
+          name: Running tests against latest on hackage
+          command: stack test

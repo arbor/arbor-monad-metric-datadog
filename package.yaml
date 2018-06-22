@@ -1,0 +1,70 @@
+name:                counters
+version:             1.0.0
+github:              "packetloop/counters"
+license:             MIT
+category:            Services
+author:              Tyler Durden
+maintainer:          tyler.durden@arbor.net
+copyright:           Arbor Networks
+
+extra-source-files:
+- README.md
+- ChangeLog.md
+
+description:         Please see the README on Github at <https://github.com/packetloop/counters#readme>
+
+default-extensions:
+- BangPatterns
+- FlexibleContexts
+- FlexibleInstances
+- GeneralizedNewtypeDeriving
+- MultiParamTypeClasses
+- OverloadedStrings
+- TupleSections
+
+dependencies:
+- base >=4.7 && <5
+- attoparsec
+- bytestring
+- cereal
+- containers
+- datadog
+- deepseq
+- extra
+- hs-arbor-logger
+- lens
+- MissingH
+- monad-control
+- monad-logger
+- stm
+- text
+- time
+
+library:
+  source-dirs: src
+  exposed-modules:
+    - Counters.Handle
+    - Counters.Type
+  ghc-options:
+    - -Wall
+    - -Wcompat
+    - -Wincomplete-record-updates
+    - -Wincomplete-uni-patterns
+    - -Wredundant-constraints
+
+tests:
+  counters-test:
+    main:                Spec.hs
+    source-dirs:
+    - test
+    - src
+    ghc-options:
+    - -threaded
+    - -rtsopts
+    - -with-rtsopts=-N
+    dependencies:
+    - counters
+    - hspec
+    - hedgehog
+    - hw-hspec-hedgehog
+    - template

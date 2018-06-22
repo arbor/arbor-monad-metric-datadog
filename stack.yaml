@@ -1,0 +1,19 @@
+resolver: lts-10.10
+
+packages:
+- .
+- location:
+    git: git@github.com:packetloop/datadog.git
+    commit: 74c4ef963d7d455ecaed5de4c53249776abdf8e9
+  extra-dep: true
+- location:
+    git: git@github.com:packetloop/hs-arbor-logger.git
+    commit: 85f56acbd43625793b09aa5281c6224a7cca7d76
+  extra-dep: true
+
+extra-deps:
+  - bits-extra-0.0.0.2
+  - concurrent-extra-0.7.0.11
+  - hedgehog-0.5.2
+  - hw-hspec-hedgehog-0.1.0.1
+  - megaparsec-4.4.0
