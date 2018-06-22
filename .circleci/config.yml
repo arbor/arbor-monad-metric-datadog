@@ -1,57 +1,99 @@
+defaults: &defaults
+  working_directory: ~/build
+  docker:
+    - image: quay.io/haskell_works/stack-build-minimal:2018-01-29
+
+  steps:
+    - checkout
+
+    - run: git fetch --unshallow || true
+
+    - run:
+        name: Copying scripts
+        command: |
+          mkdir -p ~/.local/bin
+          cp ./scripts/* ~/.local/bin
+
+    - run:
+        name: Query resolver & ghc version
+        command: |
+          resolver "$(resolver $LTS)" > resolver.version
+          ghc-version $(cat resolver.version) >  ghc.version
+
+    - run:
+        name: Find all sub-projects
+        command: projects-summary > projects.summary
+
+    ##### Building library
+    - restore_cache:
+        keys:
+          - stack--{{ checksum "ghc.version" }}--{{ .Environment.CACHE_VERSION }}--{{ checksum "resolver.version" }}--{{ checksum "projects.summary" }}--{{ checksum "package.yaml" }}--{{ checksum "stack.yaml" }}
+          - stack--{{ checksum "ghc.version" }}--{{ .Environment.CACHE_VERSION }}--{{ checksum "resolver.version" }}--{{ checksum "projects.summary" }}--{{ checksum "package.yaml" }}
+          - stack--{{ checksum "ghc.version" }}--{{ .Environment.CACHE_VERSION }}--{{ checksum "resolver.version" }}--{{ checksum "projects.summary" }}--
+          - stack--{{ checksum "ghc.version" }}--X
+
+    - run:
+        name: Stack setup
+        command: stack setup --resolver ${LTS}
+
+    - save_cache:
+        key:    stack--{{ checksum "ghc.version" }}--X
+        paths:  [~/.stack, ~/project/.stack-work]
+
+    - run:
+        name: Building dependencies
+        command: |
+          stack build --resolver ${LTS} --dependencies-only
+          stack build --resolver ${LTS} --dependencies-only --test --no-run-tests
+
+    - save_cache:
+        key:    stack--{{ checksum "ghc.version" }}--{{ .Environment.CACHE_VERSION }}--{{ checksum "resolver.version" }}--{{ checksum "projects.summary" }}--{{ checksum "package.yaml" }}
+        paths:  [~/.stack, ~/project/.stack-work]
+
+    - run: stack build --resolver ${LTS} --test --no-run-tests
+
+    - save_cache:
+        key:    stack--{{ checksum "ghc.version" }}--{{ .Environment.CACHE_VERSION }}--{{ checksum "resolver.version" }}--{{ checksum "projects.summary" }}--{{ checksum "package.yaml" }}--{{ checksum "stack.yaml" }}
+        paths:  [~/.stack, ~/project/.stack-work]
+
+    ##### Running tests
+    - run:
+        name: Running tests against latest on hackage
+        command: stack test --resolver ${LTS}
+
 version: 2.0
 jobs:
-  build:
-    working_directory: ~/project
-    docker:
-      - image: quay.io/haskell_works/stack-build-minimal:2018-01-29
+  lts-10:
+    environment:
+      - LTS: "lts-10"
+    <<: *defaults
 
-    steps:
-      - checkout
+  lts-11:
+    environment:
+      - LTS: "lts-11"
+    <<: *defaults
 
-      - run:
-          name: Copying scripts
-          command: |
-            mkdir -p ~/.local/bin
-            cp ./scripts/* ~/.local/bin
+  lts-12:
+    environment:
+      - LTS: "lts-12"
+    <<: *defaults
 
-      - run:
-          name: Query resolver & ghc version
-          command: |
-            resolver > resolver.version
-            ghc-version $(cat resolver.version) >  ghc.version
+  nightly:
+    environment:
+      - LTS: "nightly"
+    <<: *defaults
 
-      - restore_cache:
-          keys:
-                - stack--{{ checksum "ghc.version" }}--{{ .Environment.CACHE_VERSION }}--{{ checksum "resolver.version" }}--{{ checksum "package.yaml" }}--{{ checksum "stack.yaml" }}
-                - stack--{{ checksum "ghc.version" }}--{{ .Environment.CACHE_VERSION }}--{{ checksum "resolver.version" }}--{{ checksum "package.yaml" }}
-                - stack--{{ checksum "ghc.version" }}--{{ .Environment.CACHE_VERSION }}--{{ checksum "resolver.version" }}
-                - stack--{{ checksum "ghc.version" }}--only
-
-      - run:
-          name: Stack setup
-          command: stack setup
-
-      - save_cache:
-          key:    stack--{{ checksum "ghc.version" }}--only
-          paths:  [~/.stack, ~/project/.stack-work]
-
-      - run:
-          name: Building dependencies
-          command: stack build --only-dependencies
-
-      - save_cache:
-          key:    stack--{{ checksum "ghc.version" }}--{{ .Environment.CACHE_VERSION }}--{{ checksum "resolver.version" }}--{{ checksum "package.yaml" }}
-          paths:  [~/.stack, ~/project/.stack-work]
-
-      - run:
-          name: Compiling
-          command: stack build --test --no-run-tests
-
-      - save_cache:
-          key:    stack--{{ checksum "ghc.version" }}--{{ .Environment.CACHE_VERSION }}--{{ checksum "resolver.version" }}--{{ checksum "package.yaml" }}--{{ checksum "stack.yaml" }}
-          paths:  [~/.stack, ~/project/.stack-work]
-
-      ##### Running tests
-      - run:
-          name: Running tests against latest on hackage
-          command: stack test
+workflows:
+  version: 2
+  multiple-ghcs:
+    jobs:
+      - lts-10
+      - lts-12
+      - lts-11:
+          requires:
+            - lts-10
+            - lts-12
+      - nightly:
+          requires:
+            - lts-10
+            - lts-12

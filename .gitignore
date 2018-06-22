@@ -1,4 +1,4 @@
-Created by http://www.gitignore.io
+# Created by http://www.gitignore.io
 
 ### OSX ###
 .DS_Store
@@ -28,7 +28,6 @@ cabal-dev
 .virthualenv
 .hsenv
 .cabal-sandbox/
-*.cabal
 cabal.sandbox.config
 cabal.config
 .stack-work/
@@ -36,8 +35,7 @@ cabal.config
 *.ps
 *.hp
 *.prof
-/tmp
-/out
+*.cabal
 
 ### Emacs ###
 # -*- mode: gitignore; -*-

@@ -1,0 +1,137 @@
+module Arbor.Monad.Counter.Handle
+  ( MonadCounters
+  , getCounters
+  , incByKey
+  , incByKey'
+  , logStats
+  , newCounters
+  , resetStats
+  , sendSummary
+  , valuesByKeys
+  ) where
+
+import Arbor.Monad.Counter.Type
+import Arbor.Monad.Logger
+import Control.Concurrent.STM.TVar
+import Control.Lens
+import Control.Monad
+import Control.Monad.IO.Class
+import Control.Monad.STM           (STM, atomically)
+import Data.Foldable
+import Data.Semigroup              ((<>))
+import Data.String.Utils           (replace)
+import Network.StatsD
+
+import qualified Arbor.Monad.Counter.Lens as L
+import qualified Data.List                as DL
+import qualified Data.Map.Strict          as M
+import qualified Data.Text                as T
+
+newCounters :: [CounterKey] -> IO Counters
+newCounters ks = Counters <$> newCountersMap ks <*> newCountersMap ks <*> newCountersMap ks
+
+newCountersMap :: [CounterKey] -> IO CountersMap
+newCountersMap (k:ks) = do
+  m <- newCountersMap ks
+  v <- CounterValue <$> newTVarIO 0
+  return $ M.insert k v m
+newCountersMap [] = return M.empty
+
+-- Increase the current value by 1
+incByKey :: MonadCounters m => CounterKey -> m ()
+incByKey key = do
+  (Counters cur _ _) <- getCounters
+  let (CounterValue v) = cur M.! key
+  liftIO $ atomically $ modifyTVar v (+1)
+
+-- Increase the current value by 1
+incByKey' :: Counters -> CounterKey -> IO ()
+incByKey' (Counters cur _ _) key = do
+  let (CounterValue v) = cur M.! key
+  atomically $ modifyTVar v (+1)
+
+valuesByKeys :: MonadCounters m => [CounterKey] -> m [Int]
+valuesByKeys ks = do
+  (Counters cur _ _) <- getCounters
+  liftIO $ atomically $ sequence $ readTVar <$> ((\k -> cur M.! k ^. L.var) <$> ks)
+
+extractValues :: CountersMap -> STM ([(CounterKey, Int)], [TVar Int])
+extractValues m = do
+  let names = M.keys m
+  let tvars = (^. L.var) <$> M.elems m
+  nums <- sequence $ readTVar <$> tvars
+  return (zip names nums, tvars)
+
+logStats :: (MonadStats m, MonadCounters m, MonadLogger m) => m ()
+logStats = do
+  deltas <- deltaStats
+  (stats, _) <- liftIO $ atomically $ extractValues deltas
+  let nonzero = DL.filter (\e -> snd e /= 0) stats
+
+  unless (DL.null nonzero) $
+    logInfo $ DL.intercalate ", " $ (\(n, i) -> n ++ ": " ++ show i) <$> nonzero
+
+  traverse_ sendMetric (mkTaggedMetrics "counters" stats)
+  traverse_ sendMetric (mkNonTaggedMetrics stats)
+
+sendSummary :: (MonadIO m, MonadCounters m, MonadStats m) => String -> Tag -> String -> m ()
+sendSummary etitle etag fn = do
+  counters <- getCounters
+  (stats, _) <- liftIO $ atomically $ extractValues $ counters ^. L.pre
+  sendEvent (mkEvent stats etitle etag fn)
+
+metricName :: String -> T.Text
+metricName n = T.pack $ replace " " "_" n
+
+-- create metric m, but tag with stat:[actual stat name]
+mkTaggedMetrics :: String -> [(String, Int)] -> [Metric]
+mkTaggedMetrics m =
+  fmap (\(n, i) -> gauge (MetricName (metricName m)) id i & tags %~ ([tag "stat" (T.pack n)] ++))
+
+-- create metrics for each counter
+mkNonTaggedMetrics :: [(String, Int)] -> [Metric]
+mkNonTaggedMetrics =
+  fmap (\(n, i) -> gauge (MetricName (metricName n)) id i)
+
+mkEvent :: [(String, Int)] -> String -> Tag -> String -> Event
+mkEvent stats etitle etag fn = event (T.pack etitle) desc & tags %~ ([etag] ++)
+  where desc = T.intercalate "\n" $ T.pack <$> ("File processed: " <> fn) : info
+        info = (\(n, i) -> n <> ": " <> show i) <$> stats
+
+-- store the current stats into previous;
+-- accumulate stats in total
+-- calculate the delta
+deltaStats :: MonadCounters m => m CountersMap
+deltaStats = do
+  counters <- getCounters
+  deltas <- liftIO $ newCountersMap $ M.keys $ counters ^. L.cur
+
+  liftIO $ do
+    -- deltaCounters is accumulated into based on the diff between last and current counter values.
+
+    atomically $ do
+      (_, oldTvars) <- extractValues $ counters ^. L.pre
+      (_, newTvars) <- extractValues $ counters ^. L.cur
+      (_, totalTvars) <- extractValues $ counters ^. L.total
+      (_, deltaTvars) <- extractValues deltas
+
+      traverse_ (\(old, new, total, delta) -> do
+          new' <- readTVar new
+          old' <- readTVar old
+          total' <- readTVar total
+          writeTVar old new'
+          writeTVar delta (new' - old')
+          writeTVar total (total' + (new' - old'))
+        ) (DL.zip4 oldTvars newTvars totalTvars deltaTvars)
+
+    return deltas
+
+resetStats :: MonadCounters m => m ()
+resetStats = do
+  counters <- getCounters
+  sequence_ $ setZeroes <$> [counters ^. L.cur, counters ^. L.pre, counters ^. L.total]
+
+setZeroes :: MonadIO m => CountersMap -> m ()
+setZeroes cs = liftIO $ atomically $ do
+    (_, tvars) <- extractValues cs
+    traverse_ (`modifyTVar` const 0) tvars

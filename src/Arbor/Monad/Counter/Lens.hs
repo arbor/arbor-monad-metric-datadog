@@ -1,10 +1,10 @@
 {-# LANGUAGE FunctionalDependencies #-}
 {-# LANGUAGE TemplateHaskell        #-}
 
-module Counters.Lens where
+module Arbor.Monad.Counter.Lens where
 
+import Arbor.Monad.Counter.Type
 import Control.Lens
-import Counters.Type
 
 makeFields ''CounterValue
 makeFields ''Counters

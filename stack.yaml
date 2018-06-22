@@ -7,8 +7,8 @@ packages:
     commit: 74c4ef963d7d455ecaed5de4c53249776abdf8e9
   extra-dep: true
 - location:
-    git: git@github.com:packetloop/hs-arbor-logger.git
-    commit: 85f56acbd43625793b09aa5281c6224a7cca7d76
+    git: git@github.com:packetloop/arbor-monad-logger.git
+    commit: 86f1efc88d1c5a3ff917c39a03cf4ad23a1473f3
   extra-dep: true
 
 extra-deps:

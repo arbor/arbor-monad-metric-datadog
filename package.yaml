@@ -1,6 +1,6 @@
-name:                counters
+name:                arbor-monad-counter
 version:             1.0.0
-github:              "packetloop/counters"
+github:              "packetloop/arbor-monad-counter"
 license:             MIT
 category:            Services
 author:              Tyler Durden
@@ -11,7 +11,7 @@ extra-source-files:
 - README.md
 - ChangeLog.md
 
-description:         Please see the README on Github at <https://github.com/packetloop/counters#readme>
+description:         Please see the README on Github at <https://github.com/packetloop/arbor-monad-counter#readme>
 
 default-extensions:
 - BangPatterns
@@ -25,13 +25,13 @@ default-extensions:
 dependencies:
 - base >=4.7 && <5
 - attoparsec
+- arbor-monad-logger
 - bytestring
 - cereal
 - containers
 - datadog
 - deepseq
 - extra
-- hs-arbor-logger
 - lens
 - MissingH
 - monad-control
@@ -43,8 +43,8 @@ dependencies:
 library:
   source-dirs: src
   exposed-modules:
-    - Counters.Handle
-    - Counters.Type
+    - Arbor.Monad.Counter.Handle
+    - Arbor.Monad.Counter.Type
   ghc-options:
     - -Wall
     - -Wcompat
@@ -53,7 +53,7 @@ library:
     - -Wredundant-constraints
 
 tests:
-  counters-test:
+  arbor-monad-counter-test:
     main:                Spec.hs
     source-dirs:
     - test
@@ -63,7 +63,7 @@ tests:
     - -rtsopts
     - -with-rtsopts=-N
     dependencies:
-    - counters
+    - arbor-monad-counter
     - hspec
     - hedgehog
     - hw-hspec-hedgehog
