@@ -1,4 +1,4 @@
-resolver: lts-10.10
+resolver: lts-11.17
 
 packages:
 - .
@@ -10,10 +10,3 @@ packages:
     git: git@github.com:packetloop/arbor-monad-logger.git
     commit: 86f1efc88d1c5a3ff917c39a03cf4ad23a1473f3
   extra-dep: true
-
-extra-deps:
-  - bits-extra-0.0.0.2
-  - concurrent-extra-0.7.0.11
-  - hedgehog-0.5.2
-  - hw-hspec-hedgehog-0.1.0.1
-  - megaparsec-4.4.0
