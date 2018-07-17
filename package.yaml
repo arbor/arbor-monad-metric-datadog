@@ -24,18 +24,12 @@ default-extensions:
 
 dependencies:
 - base >=4.7 && <5
-- attoparsec
 - arbor-monad-logger
-- bytestring
-- cereal
 - containers
 - datadog
-- deepseq
-- extra
+- generic-lens
 - lens
 - MissingH
-- monad-control
-- monad-logger
 - stm
 - text
 - time

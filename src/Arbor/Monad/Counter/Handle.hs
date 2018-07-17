@@ -1,6 +1,9 @@
+{-# LANGUAGE DataKinds        #-}
+{-# LANGUAGE TypeApplications #-}
+
 module Arbor.Monad.Counter.Handle
   ( MonadCounters
-  , getCounters
+  , Z.getCounters
   , incByKey
   , incByKey'
   , logStats
@@ -10,19 +13,20 @@ module Arbor.Monad.Counter.Handle
   , valuesByKeys
   ) where
 
-import Arbor.Monad.Counter.Type
+import Arbor.Monad.Counter.Type     (CounterKey, CounterValue (CounterValue), Counters (Counters), CountersMap, MonadCounters)
 import Arbor.Monad.Logger
 import Control.Concurrent.STM.TVar
 import Control.Lens
 import Control.Monad
 import Control.Monad.IO.Class
-import Control.Monad.STM           (STM, atomically)
+import Control.Monad.STM            (STM, atomically)
 import Data.Foldable
-import Data.Semigroup              ((<>))
-import Data.String.Utils           (replace)
+import Data.Generics.Product.Fields
+import Data.Semigroup               ((<>))
+import Data.String.Utils            (replace)
 import Network.StatsD
 
-import qualified Arbor.Monad.Counter.Lens as L
+import qualified Arbor.Monad.Counter.Type as Z
 import qualified Data.List                as DL
 import qualified Data.Map.Strict          as M
 import qualified Data.Text                as T
@@ -40,7 +44,7 @@ newCountersMap [] = return M.empty
 -- Increase the current value by 1
 incByKey :: MonadCounters m => CounterKey -> m ()
 incByKey key = do
-  (Counters cur _ _) <- getCounters
+  (Counters cur _ _) <- Z.getCounters
   let (CounterValue v) = cur M.! key
   liftIO $ atomically $ modifyTVar v (+1)
 
@@ -52,13 +56,13 @@ incByKey' (Counters cur _ _) key = do
 
 valuesByKeys :: MonadCounters m => [CounterKey] -> m [Int]
 valuesByKeys ks = do
-  (Counters cur _ _) <- getCounters
-  liftIO $ atomically $ sequence $ readTVar <$> ((\k -> cur M.! k ^. L.var) <$> ks)
+  (Counters cur _ _) <- Z.getCounters
+  liftIO $ atomically $ sequence $ readTVar <$> ((\k -> cur M.! k ^. field @"var") <$> ks)
 
 extractValues :: CountersMap -> STM ([(CounterKey, Int)], [TVar Int])
 extractValues m = do
   let names = M.keys m
-  let tvars = (^. L.var) <$> M.elems m
+  let tvars = (^. field @"var") <$> M.elems m
   nums <- sequence $ readTVar <$> tvars
   return (zip names nums, tvars)
 
@@ -76,8 +80,8 @@ logStats = do
 
 sendSummary :: (MonadIO m, MonadCounters m, MonadStats m) => String -> Tag -> String -> m ()
 sendSummary etitle etag fn = do
-  counters <- getCounters
-  (stats, _) <- liftIO $ atomically $ extractValues $ counters ^. L.pre
+  counters    <- Z.getCounters
+  (stats, _)  <- liftIO $ atomically $ extractValues $ counters ^. field @"previous"
   sendEvent (mkEvent stats etitle etag fn)
 
 metricName :: String -> T.Text
@@ -103,16 +107,16 @@ mkEvent stats etitle etag fn = event (T.pack etitle) desc & tags %~ ([etag] ++)
 -- calculate the delta
 deltaStats :: MonadCounters m => m CountersMap
 deltaStats = do
-  counters <- getCounters
-  deltas <- liftIO $ newCountersMap $ M.keys $ counters ^. L.cur
+  counters <- Z.getCounters
+  deltas <- liftIO $ newCountersMap $ M.keys $ counters ^. field @"current"
 
   liftIO $ do
     -- deltaCounters is accumulated into based on the diff between last and current counter values.
 
     atomically $ do
-      (_, oldTvars) <- extractValues $ counters ^. L.pre
-      (_, newTvars) <- extractValues $ counters ^. L.cur
-      (_, totalTvars) <- extractValues $ counters ^. L.total
+      (_, oldTvars) <- extractValues $ counters ^. field @"previous"
+      (_, newTvars) <- extractValues $ counters ^. field @"current"
+      (_, totalTvars) <- extractValues $ counters ^. field @"total"
       (_, deltaTvars) <- extractValues deltas
 
       traverse_ (\(old, new, total, delta) -> do
@@ -128,8 +132,8 @@ deltaStats = do
 
 resetStats :: MonadCounters m => m ()
 resetStats = do
-  counters <- getCounters
-  sequence_ $ setZeroes <$> [counters ^. L.cur, counters ^. L.pre, counters ^. L.total]
+  counters <- Z.getCounters
+  sequence_ $ setZeroes <$> [counters ^. field @"current", counters ^. field @"previous", counters ^. field @"total"]
 
 setZeroes :: MonadIO m => CountersMap -> m ()
 setZeroes cs = liftIO $ atomically $ do
