@@ -33,6 +33,7 @@ dependencies:
 - stm
 - text
 - time
+- transformers
 
 library:
   source-dirs: src

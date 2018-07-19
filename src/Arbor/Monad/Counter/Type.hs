@@ -5,6 +5,8 @@ module Arbor.Monad.Counter.Type where
 
 import Control.Concurrent.STM.TVar
 import Control.Monad.IO.Class
+import Control.Monad.Trans.Class
+import Control.Monad.Trans.Except
 import Data.Map.Strict
 import GHC.Generics
 
@@ -24,3 +26,6 @@ data Counters = Counters
 
 class (Monad m, MonadIO m) => MonadCounters m where
   getCounters :: m Counters
+
+instance MonadCounters m => MonadCounters (ExceptT e m) where
+  getCounters = lift getCounters
