@@ -1,4 +1,4 @@
-resolver: lts-11.17
+resolver: lts-12.1
 
 packages:
 - .
@@ -10,3 +10,6 @@ packages:
     git: git@github.com:packetloop/arbor-monad-logger.git
     commit: 86f1efc88d1c5a3ff917c39a03cf4ad23a1473f3
   extra-dep: true
+
+extra-deps:
+- template-0.2.0.10
