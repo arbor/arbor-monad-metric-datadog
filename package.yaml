@@ -3,8 +3,8 @@ version:             1.0.0
 github:              "packetloop/arbor-monad-counter"
 license:             MIT
 category:            Services
-author:              Tyler Durden
-maintainer:          tyler.durden@arbor.net
+author:              Arbor Networks
+maintainer:          mayhem@arbor.net
 copyright:           Arbor Networks
 
 extra-source-files:
