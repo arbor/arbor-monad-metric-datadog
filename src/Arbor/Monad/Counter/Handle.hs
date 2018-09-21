@@ -23,7 +23,6 @@ import Control.Monad.STM            (STM, atomically)
 import Data.Foldable
 import Data.Generics.Product.Fields
 import Data.Semigroup               ((<>))
-import Data.String.Utils            (replace)
 import Network.StatsD
 
 import qualified Arbor.Monad.Counter.Type as Z
@@ -85,7 +84,7 @@ sendSummary etitle etag fn = do
   sendEvent (mkEvent stats etitle etag fn)
 
 metricName :: String -> T.Text
-metricName n = T.pack $ replace " " "_" n
+metricName n = T.replace " " "_" (T.pack n)
 
 -- create metric m, but tag with stat:[actual stat name]
 mkTaggedMetrics :: String -> [(String, Int)] -> [Metric]
