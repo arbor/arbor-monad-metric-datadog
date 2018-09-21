@@ -29,7 +29,6 @@ dependencies:
 - datadog
 - generic-lens
 - lens
-- MissingH
 - stm
 - text
 - time
