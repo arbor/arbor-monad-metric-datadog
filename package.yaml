@@ -24,8 +24,8 @@ default-extensions:
 
 dependencies:
 - base >=4.7 && <5
+- arbor-datadog
 - containers
-- datadog
 - generic-lens
 - lens
 - monad-logger

@@ -14,6 +14,7 @@ module Arbor.Monad.Counter.Handle
   ) where
 
 import Arbor.Monad.Counter.Type     (CounterKey, CounterValue (CounterValue), Counters (Counters), CountersMap, MonadCounters)
+import Arbor.Network.StatsD
 import Control.Concurrent.STM.TVar
 import Control.Lens
 import Control.Monad
@@ -23,7 +24,6 @@ import Control.Monad.STM            (STM, atomically)
 import Data.Foldable
 import Data.Generics.Product.Fields
 import Data.Semigroup               ((<>))
-import Network.StatsD
 
 import qualified Arbor.Monad.Counter.Type as Z
 import qualified Data.List                as DL
