@@ -14,16 +14,16 @@ module Arbor.Monad.Counter.Handle
   ) where
 
 import Arbor.Monad.Counter.Type     (CounterKey, CounterValue (CounterValue), Counters (Counters), CountersMap, MonadCounters)
-import Arbor.Monad.Logger
+import Arbor.Network.StatsD
 import Control.Concurrent.STM.TVar
 import Control.Lens
 import Control.Monad
 import Control.Monad.IO.Class
+import Control.Monad.Logger
 import Control.Monad.STM            (STM, atomically)
 import Data.Foldable
 import Data.Generics.Product.Fields
 import Data.Semigroup               ((<>))
-import Network.StatsD
 
 import qualified Arbor.Monad.Counter.Type as Z
 import qualified Data.List                as DL
@@ -72,7 +72,7 @@ logStats = do
   let nonzero = DL.filter (\e -> snd e /= 0) stats
 
   unless (DL.null nonzero) $
-    logInfo $ DL.intercalate ", " $ (\(n, i) -> n ++ ": " ++ show i) <$> nonzero
+    logInfoN $ T.pack $ DL.intercalate ", " $ (\(n, i) -> n <> ": " <> show i) <$> nonzero
 
   traverse_ sendMetric (mkTaggedMetrics "counters" stats)
   traverse_ sendMetric (mkNonTaggedMetrics stats)
