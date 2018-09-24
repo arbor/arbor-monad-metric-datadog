@@ -229,8 +229,8 @@ workflows:
   version: 2
   multiple-ghcs:
     jobs:
-      - ghc-8.4.3
-      - ghc-8.2.2
+      # - ghc-8.4.3 -- Re-enable when arbor-datadog is published to hackage and stackage
+      # - ghc-8.2.2
       - lts-12
       - checked-builds:
           requires:
