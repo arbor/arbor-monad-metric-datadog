@@ -13,22 +13,23 @@ module Arbor.Monad.Counter.Handle
   , valuesByKeys
   ) where
 
-import Arbor.Monad.Counter.Type     (CounterKey, CounterValue (CounterValue), Counters (Counters), CountersMap, MonadCounters)
-import Arbor.Network.StatsD
+import Arbor.Monad.Counter.Type    (CounterKey, CounterValue (CounterValue), Counters (Counters), CountersMap, MonadCounters)
 import Control.Concurrent.STM.TVar
 import Control.Lens
 import Control.Monad
 import Control.Monad.IO.Class
 import Control.Monad.Logger
-import Control.Monad.STM            (STM, atomically)
+import Control.Monad.STM           (STM, atomically)
 import Data.Foldable
-import Data.Generics.Product.Fields
-import Data.Semigroup               ((<>))
+import Data.Generics.Product.Any
+import Data.Semigroup              ((<>))
 
-import qualified Arbor.Monad.Counter.Type as Z
-import qualified Data.List                as DL
-import qualified Data.Map.Strict          as M
-import qualified Data.Text                as T
+import qualified Arbor.Monad.Counter.Type  as Z
+import qualified Arbor.Network.StatsD      as S
+import qualified Arbor.Network.StatsD.Type as Z
+import qualified Data.List                 as DL
+import qualified Data.Map.Strict           as M
+import qualified Data.Text                 as T
 
 newCounters :: [CounterKey] -> IO Counters
 newCounters ks = Counters <$> newCountersMap ks <*> newCountersMap ks <*> newCountersMap ks
@@ -56,16 +57,16 @@ incByKey' (Counters cur _ _) key = do
 valuesByKeys :: MonadCounters m => [CounterKey] -> m [Int]
 valuesByKeys ks = do
   (Counters cur _ _) <- Z.getCounters
-  liftIO $ atomically $ sequence $ readTVar <$> ((\k -> cur M.! k ^. field @"var") <$> ks)
+  liftIO $ atomically $ sequence $ readTVar <$> ((\k -> cur M.! k ^. the @"var") <$> ks)
 
 extractValues :: CountersMap -> STM ([(CounterKey, Int)], [TVar Int])
 extractValues m = do
   let names = M.keys m
-  let tvars = (^. field @"var") <$> M.elems m
+  let tvars = (^. the @"var") <$> M.elems m
   nums <- sequence $ readTVar <$> tvars
   return (zip names nums, tvars)
 
-logStats :: (MonadStats m, MonadCounters m, MonadLogger m) => m ()
+logStats :: (S.MonadStats m, MonadCounters m, MonadLogger m) => m ()
 logStats = do
   deltas <- deltaStats
   (stats, _) <- liftIO $ atomically $ extractValues deltas
@@ -74,30 +75,30 @@ logStats = do
   unless (DL.null nonzero) $
     logInfoN $ T.pack $ DL.intercalate ", " $ (\(n, i) -> n <> ": " <> show i) <$> nonzero
 
-  traverse_ sendMetric (mkTaggedMetrics "counters" stats)
-  traverse_ sendMetric (mkNonTaggedMetrics stats)
+  traverse_ S.sendMetric (mkTaggedMetrics "counters" stats)
+  traverse_ S.sendMetric (mkNonTaggedMetrics stats)
 
-sendSummary :: (MonadIO m, MonadCounters m, MonadStats m) => String -> Tag -> String -> m ()
+sendSummary :: (MonadIO m, MonadCounters m, S.MonadStats m) => String -> Z.Tag -> String -> m ()
 sendSummary etitle etag fn = do
   counters    <- Z.getCounters
-  (stats, _)  <- liftIO $ atomically $ extractValues $ counters ^. field @"previous"
-  sendEvent (mkEvent stats etitle etag fn)
+  (stats, _)  <- liftIO $ atomically $ extractValues $ counters ^. the @"previous"
+  S.sendEvent (mkEvent stats etitle etag fn)
 
 metricName :: String -> T.Text
 metricName n = T.replace " " "_" (T.pack n)
 
 -- create metric m, but tag with stat:[actual stat name]
-mkTaggedMetrics :: String -> [(String, Int)] -> [Metric]
+mkTaggedMetrics :: String -> [(String, Int)] -> [Z.Metric]
 mkTaggedMetrics m =
-  fmap (\(n, i) -> gauge (MetricName (metricName m)) id i & tags %~ ([tag "stat" (T.pack n)] ++))
+  fmap (\(n, i) -> S.gauge (Z.MetricName (metricName m)) id i & the @"tags" %~ ([S.tag "stat" (T.pack n)] ++))
 
 -- create metrics for each counter
-mkNonTaggedMetrics :: [(String, Int)] -> [Metric]
+mkNonTaggedMetrics :: [(String, Int)] -> [S.Metric]
 mkNonTaggedMetrics =
-  fmap (\(n, i) -> gauge (MetricName (metricName n)) id i)
+  fmap (\(n, i) -> S.gauge (Z.MetricName (metricName n)) id i)
 
-mkEvent :: [(String, Int)] -> String -> Tag -> String -> Event
-mkEvent stats etitle etag fn = event (T.pack etitle) desc & tags %~ ([etag] ++)
+mkEvent :: [(String, Int)] -> String -> Z.Tag -> String -> Z.Event
+mkEvent stats etitle etag fn = S.event (T.pack etitle) desc & the @"tags" %~ ([etag] ++)
   where desc = T.intercalate "\n" $ T.pack <$> ("File processed: " <> fn) : info
         info = (\(n, i) -> n <> ": " <> show i) <$> stats
 
@@ -107,15 +108,15 @@ mkEvent stats etitle etag fn = event (T.pack etitle) desc & tags %~ ([etag] ++)
 deltaStats :: MonadCounters m => m CountersMap
 deltaStats = do
   counters <- Z.getCounters
-  deltas <- liftIO $ newCountersMap $ M.keys $ counters ^. field @"current"
+  deltas <- liftIO $ newCountersMap $ M.keys $ counters ^. the @"current"
 
   liftIO $ do
     -- deltaCounters is accumulated into based on the diff between last and current counter values.
 
     atomically $ do
-      (_, oldTvars) <- extractValues $ counters ^. field @"previous"
-      (_, newTvars) <- extractValues $ counters ^. field @"current"
-      (_, totalTvars) <- extractValues $ counters ^. field @"total"
+      (_, oldTvars)   <- extractValues $ counters ^. the @"previous"
+      (_, newTvars)   <- extractValues $ counters ^. the @"current"
+      (_, totalTvars) <- extractValues $ counters ^. the @"total"
       (_, deltaTvars) <- extractValues deltas
 
       traverse_ (\(old, new, total, delta) -> do
@@ -132,7 +133,7 @@ deltaStats = do
 resetStats :: MonadCounters m => m ()
 resetStats = do
   counters <- Z.getCounters
-  sequence_ $ setZeroes <$> [counters ^. field @"current", counters ^. field @"previous", counters ^. field @"total"]
+  sequence_ $ setZeroes <$> [counters ^. the @"current", counters ^. the @"previous", counters ^. the @"total"]
 
 setZeroes :: MonadIO m => CountersMap -> m ()
 setZeroes cs = liftIO $ atomically $ do

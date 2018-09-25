@@ -1,11 +1,11 @@
-resolver: lts-12.1
+resolver: lts-12.10
 
 packages:
 - .
 
 - location:
     git: git@github.com:packetloop/arbor-datadog.git
-    commit: 16988a60daa7d9b3ffe8df4b37b2360a2dd5bc12
+    commit: 317f6d2a8b29fc807c98e69d9fabc428b635e5f1
   extra-dep: true
 
 extra-deps:
