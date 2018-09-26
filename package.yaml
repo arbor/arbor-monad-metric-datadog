@@ -27,10 +27,7 @@ dependencies:
 - containers
 - generic-lens
 - lens
-- monad-logger
 - stm
-- text
-- time
 - transformers
 
 library:
@@ -60,4 +57,3 @@ tests:
     - hspec
     - hedgehog
     - hw-hspec-hedgehog
-    - template
