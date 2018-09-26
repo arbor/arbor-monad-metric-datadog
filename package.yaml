@@ -1,5 +1,5 @@
 name:                arbor-monad-counter
-version:             1.0.0
+version:             2.0.0
 github:              "packetloop/arbor-monad-counter"
 license:             MIT
 category:            Services
@@ -24,14 +24,10 @@ default-extensions:
 
 dependencies:
 - base >=4.7 && <5
-- arbor-datadog
 - containers
 - generic-lens
 - lens
-- monad-logger
 - stm
-- text
-- time
 - transformers
 
 library:
@@ -61,4 +57,3 @@ tests:
     - hspec
     - hedgehog
     - hw-hspec-hedgehog
-    - template
