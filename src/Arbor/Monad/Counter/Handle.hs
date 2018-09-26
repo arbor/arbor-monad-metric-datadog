@@ -11,6 +11,7 @@ module Arbor.Monad.Counter.Handle
   , valuesByKeys
   , extractValues
   , newCountersMap
+  , deltaStats
   ) where
 
 import Arbor.Monad.Counter.Type    (CounterKey, CounterValue (CounterValue), Counters (Counters), CountersMap, MonadCounters)
@@ -22,6 +23,7 @@ import Data.Foldable
 import Data.Generics.Product.Any
 
 import qualified Arbor.Monad.Counter.Type as Z
+import qualified Data.List                as DL
 import qualified Data.Map.Strict          as M
 
 newCounters :: [CounterKey] -> IO Counters
@@ -58,6 +60,28 @@ extractValues m = do
   let tvars = (^. the @"var") <$> M.elems m
   nums <- sequence $ readTVar <$> tvars
   return (zip names nums, tvars)
+
+-- store the current stats into previous;
+-- accumulate stats in total
+-- calculate the delta
+deltaStats :: MonadCounters m => m CountersMap
+deltaStats = do
+  counters <- Z.getCounters
+  deltas <- liftIO $ newCountersMap $ M.keys $ counters ^. the @"current"
+  -- deltaCounters is accumulated into based on the diff between last and current counter values.
+  liftIO $ atomically $ do
+    (_, oldTvars)   <- extractValues $ counters ^. the @"previous"
+    (_, newTvars)   <- extractValues $ counters ^. the @"current"
+    (_, totalTvars) <- extractValues $ counters ^. the @"total"
+    (_, deltaTvars) <- extractValues deltas
+    for_ (DL.zip4 oldTvars newTvars totalTvars deltaTvars) $ \(old, new, total, delta) -> do
+      new' <- readTVar new
+      old' <- readTVar old
+      total' <- readTVar total
+      writeTVar old new'
+      writeTVar delta (new' - old')
+      writeTVar total (total' + (new' - old'))
+    return deltas
 
 resetStats :: MonadCounters m => m ()
 resetStats = do
