@@ -27,14 +27,13 @@ dependencies:
 - containers
 - generic-lens
 - lens
+- mtl
 - stm
+- resourcet
 - transformers
 
 library:
   source-dirs: src
-  exposed-modules:
-    - Arbor.Monad.Counter.Handle
-    - Arbor.Monad.Counter.Type
   ghc-options:
     - -Wall
     - -Wcompat

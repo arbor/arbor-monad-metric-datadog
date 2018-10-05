@@ -90,5 +90,5 @@ resetStats = do
 
 setZeroes :: MonadIO m => CountersMap -> m ()
 setZeroes cs = liftIO $ atomically $ do
-    (_, tvars) <- extractValues cs
-    traverse_ (`modifyTVar` const 0) tvars
+  (_, tvars) <- extractValues cs
+  traverse_ (`modifyTVar` const 0) tvars
