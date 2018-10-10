@@ -4,8 +4,12 @@
 module Arbor.Monad.Counter.Handle
   ( MonadCounters
   , Z.getCounters
+
   , incByKey
   , incByKey'
+  , addByKey
+  , addByKey'
+
   , newCounters
   , resetStats
   , valuesByKeys
@@ -38,16 +42,31 @@ newCountersMap [] = return M.empty
 
 -- Increase the current value by 1
 incByKey :: MonadCounters m => CounterKey -> m ()
-incByKey key = do
-  (Counters cur _ _) <- Z.getCounters
-  let (CounterValue v) = cur M.! key
-  liftIO $ atomically $ modifyTVar v (+1)
+incByKey = modifyByKey (+1)
 
 -- Increase the current value by 1
 incByKey' :: Counters -> CounterKey -> IO ()
-incByKey' (Counters cur _ _) key = do
+incByKey' = modifyByKey' (+1)
+
+-- Increase the current value by n
+addByKey :: MonadCounters m => Int -> CounterKey -> m ()
+addByKey n = modifyByKey (+n)
+
+-- Increase the current value by n
+addByKey' :: Int -> Counters -> CounterKey -> IO ()
+addByKey' n = modifyByKey' (+n)
+
+-- Modify the current value with the supplied function
+modifyByKey :: MonadCounters m => (Int -> Int) -> CounterKey -> m ()
+modifyByKey f key = do
+  counters <- Z.getCounters
+  liftIO $ modifyByKey' f counters key
+
+-- Modify the current value with the supplied function
+modifyByKey' :: (Int -> Int) -> Counters -> CounterKey -> IO ()
+modifyByKey' f (Counters cur _ _) key = do
   let (CounterValue v) = cur M.! key
-  atomically $ modifyTVar v (+1)
+  atomically $ modifyTVar v f
 
 valuesByKeys :: MonadCounters m => [CounterKey] -> m [Int]
 valuesByKeys ks = do
