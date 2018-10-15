@@ -73,3 +73,5 @@ __pycache*
 
 # transient librdkafka
 .librdkafka
+
+/.dist-newstyle
