@@ -33,7 +33,7 @@ import qualified Data.List                as DL
 import qualified Data.Map.Strict          as M
 
 newCounters :: [CounterKey] -> IO Counters
-newCounters ks = Counters <$> newCountersMap ks <*> newCountersMap ks <*> newCountersMap ks
+newCounters ks = Counters <$> newCountersMap ks <*> newCountersMap ks
 
 newCountersMap :: [CounterKey] -> IO CountersMap
 newCountersMap (k:ks) = do
@@ -66,7 +66,7 @@ modifyByKey f key = do
 
 -- Modify the current value with the supplied function
 modifyByKey' :: (Int -> Int) -> Counters -> CounterKey -> IO ()
-modifyByKey' f (Counters cur _ _) key = do
+modifyByKey' f (Counters cur _) key = do
   let (CounterValue tv) = cur M.! key
   atomically $ modifyTVar tv f
 
@@ -78,13 +78,13 @@ setByKey value key = do
 
 -- Set the current value
 setByKey' :: Int -> Counters -> CounterKey -> IO ()
-setByKey' value (Counters cur _ _) key = do
+setByKey' value (Counters cur _) key = do
   let (CounterValue tv) = cur M.! key
   atomically $ writeTVar tv value
 
 valuesByKeys :: MonadCounters m => [CounterKey] -> m [Int]
 valuesByKeys ks = do
-  (Counters cur _ _) <- Z.getCounters
+  (Counters cur _) <- Z.getCounters
   liftIO $ atomically $ sequence $ readTVar <$> ((\k -> cur M.! k ^. the @"var") <$> ks)
 
 extractValues :: CountersMap -> STM ([(CounterKey, Int)], [TVar Int])
@@ -95,7 +95,6 @@ extractValues m = do
   return (zip names nums, tvars)
 
 -- store the current stats into previous;
--- accumulate stats in total
 -- calculate the delta
 deltaStats :: MonadCounters m => m CountersMap
 deltaStats = do
@@ -105,21 +104,18 @@ deltaStats = do
   liftIO $ atomically $ do
     (_, oldTvars)   <- extractValues $ counters ^. the @"previous"
     (_, newTvars)   <- extractValues $ counters ^. the @"current"
-    (_, totalTvars) <- extractValues $ counters ^. the @"total"
     (_, deltaTvars) <- extractValues deltas
-    for_ (DL.zip4 oldTvars newTvars totalTvars deltaTvars) $ \(old, new, total, delta) -> do
+    for_ (DL.zip3 oldTvars newTvars deltaTvars) $ \(old, new, delta) -> do
       new' <- readTVar new
       old' <- readTVar old
-      total' <- readTVar total
       writeTVar old new'
       writeTVar delta (new' - old')
-      writeTVar total (total' + (new' - old'))
     return deltas
 
 resetStats :: MonadCounters m => m ()
 resetStats = do
   counters <- Z.getCounters
-  sequence_ $ setZeroes <$> [counters ^. the @"current", counters ^. the @"previous", counters ^. the @"total"]
+  sequence_ $ setZeroes <$> [counters ^. the @"current", counters ^. the @"previous"]
 
 setZeroes :: MonadIO m => CountersMap -> m ()
 setZeroes cs = liftIO $ atomically $ do
