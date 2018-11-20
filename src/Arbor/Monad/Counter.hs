@@ -9,6 +9,8 @@ module Arbor.Monad.Counter
   , incByKey'
   , addByKey
   , addByKey'
+  , setByKey
+  , setByKey'
 
   , newCounters
   , resetStats
@@ -65,8 +67,20 @@ modifyByKey f key = do
 -- Modify the current value with the supplied function
 modifyByKey' :: (Int -> Int) -> Counters -> CounterKey -> IO ()
 modifyByKey' f (Counters cur _ _) key = do
-  let (CounterValue v) = cur M.! key
-  atomically $ modifyTVar v f
+  let (CounterValue tv) = cur M.! key
+  atomically $ modifyTVar tv f
+
+-- Set the current value
+setByKey :: MonadCounters m => Int -> CounterKey -> m ()
+setByKey value key = do
+  counters <- Z.getCounters
+  liftIO $ setByKey' value counters key
+
+-- Set the current value
+setByKey' :: Int -> Counters -> CounterKey -> IO ()
+setByKey' value (Counters cur _ _) key = do
+  let (CounterValue tv) = cur M.! key
+  atomically $ writeTVar tv value
 
 valuesByKeys :: MonadCounters m => [CounterKey] -> m [Int]
 valuesByKeys ks = do
