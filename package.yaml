@@ -1,5 +1,5 @@
 name:                arbor-monad-counter
-version:             2.0.0
+version:             2.0.1
 github:              "arbor/arbor-monad-counter"
 license:             MIT
 category:            Services
