@@ -24,7 +24,6 @@ type CountersMap = Map CounterKey CounterValue
 data Counters = Counters
   { current  :: CountersMap
   , previous :: CountersMap
-  , total    :: CountersMap
   } deriving (Generic)
 
 class (Monad m, MonadIO m) => MonadCounters m where
