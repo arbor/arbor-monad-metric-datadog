@@ -18,6 +18,7 @@ module Arbor.Monad.Counter
   , extractValues
   , newCountersMap
   , deltaStats
+  , currentStats
   ) where
 
 import Arbor.Monad.Counter.Type    (CounterKey, CounterValue (CounterValue), Counters (Counters), CountersMap, MonadCounters)
@@ -111,6 +112,9 @@ deltaStats = do
       writeTVar old new'
       writeTVar delta (new' - old')
     return deltas
+
+currentStats :: MonadCounters m => m CountersMap
+currentStats = Z.getCounters <&> (^. the @"current")
 
 resetStats :: MonadCounters m => m ()
 resetStats = do
