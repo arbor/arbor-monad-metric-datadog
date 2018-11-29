@@ -1,6 +1,6 @@
-name:                arbor-monad-counter
+name:                arbor-monad-metric
 version:             2.0.1
-github:              "arbor/arbor-monad-counter"
+github:              "arbor/arbor-monad-metric"
 license:             MIT
 category:            Services
 author:              Arbor Networks
@@ -11,7 +11,7 @@ extra-source-files:
 - README.md
 - ChangeLog.md
 
-description:         Please see the README on Github at <https://github.com/arbor/arbor-monad-counter#readme>
+description:         Please see the README on Github at <https://github.com/arbor/arbor-monad-metric#readme>
 
 default-extensions:
 - BangPatterns
@@ -42,7 +42,7 @@ library:
     - -Wredundant-constraints
 
 tests:
-  arbor-monad-counter-test:
+  arbor-monad-metric-test:
     main:                Spec.hs
     source-dirs:
     - test
@@ -52,7 +52,7 @@ tests:
     - -rtsopts
     - -with-rtsopts=-N
     dependencies:
-    - arbor-monad-counter
+    - arbor-monad-metric
     - hspec
     - hedgehog
     - hw-hspec-hedgehog

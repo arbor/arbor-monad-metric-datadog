@@ -1,3 +1,3 @@
-# Changelog for arbor-monad-counter
+# Changelog for arbor-monad-metric
 
 ## Unreleased changes

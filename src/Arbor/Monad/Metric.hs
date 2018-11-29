@@ -1,7 +1,7 @@
 {-# LANGUAGE DataKinds        #-}
 {-# LANGUAGE TypeApplications #-}
 
-module Arbor.Monad.Counter
+module Arbor.Monad.Metric
   ( MonadCounters
   , Z.getCounters
 
@@ -21,7 +21,7 @@ module Arbor.Monad.Counter
   , currentStats
   ) where
 
-import Arbor.Monad.Counter.Type    (CounterKey, CounterValue (CounterValue), Counters (Counters), CountersMap, MonadCounters)
+import Arbor.Monad.Metric.Type     (CounterKey, CounterValue (CounterValue), Counters (Counters), CountersMap, MonadCounters)
 import Control.Concurrent.STM.TVar
 import Control.Lens
 import Control.Monad.IO.Class
@@ -29,9 +29,9 @@ import Control.Monad.STM           (STM, atomically)
 import Data.Foldable
 import Data.Generics.Product.Any
 
-import qualified Arbor.Monad.Counter.Type as Z
-import qualified Data.List                as DL
-import qualified Data.Map.Strict          as M
+import qualified Arbor.Monad.Metric.Type as Z
+import qualified Data.List               as DL
+import qualified Data.Map.Strict         as M
 
 newCounters :: [CounterKey] -> IO Counters
 newCounters ks = Counters <$> newCountersMap ks <*> newCountersMap ks
