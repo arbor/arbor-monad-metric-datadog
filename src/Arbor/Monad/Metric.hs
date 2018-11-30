@@ -36,37 +36,89 @@ newMetricsIO = Metrics
   <*> STM.newTVarIO M.empty
 
 -- Increase the current value by 1
-incByKey :: (Ord k, Num (MetricValue k), MetricFamily k) => MonadMetrics m => k -> m ()
+incByKey :: ()
+  => Ord k
+  => Num (MetricValue k)
+  => MetricFamily k
+  => MonadMetrics m
+  => k
+  -> m ()
 incByKey = modifyByKey (+1)
 
 -- Increase the current value by 1
-incByKey' :: (Ord k, Num (MetricValue k), MetricFamily k) => k -> Metrics -> IO ()
+incByKey' :: ()
+  => Ord k
+  => Num (MetricValue k)
+  => MetricFamily k
+  => k
+  -> Metrics
+  -> IO ()
 incByKey' = modifyByKey' (+1)
 
 -- Increase the current value by n
-addByKey :: (Ord k, Num (MetricValue k), MetricFamily k, MonadMetrics m) => MetricValue k -> k -> m ()
+addByKey :: ()
+  => Ord k
+  => Num (MetricValue k)
+  => MetricFamily k
+  => MonadMetrics m
+  => MetricValue k
+  -> k
+  -> m ()
 addByKey n = modifyByKey (+n)
 
 -- Increase the current value by n
-addByKey' :: (Ord k, Num (MetricValue k), MetricFamily k) => MetricValue k -> k -> Metrics -> IO ()
+addByKey' :: ()
+  => Ord k
+  => Num (MetricValue k)
+  => MetricFamily k
+  => MetricValue k
+  -> k
+  -> Metrics
+  -> IO ()
 addByKey' n = modifyByKey' (+n)
 
 -- Set the current value
-setByKey :: (Ord k, Num (MetricValue k), MetricFamily k, MonadMetrics m) => MetricValue k -> k -> m ()
+setByKey :: ()
+  => Ord k
+  => Num (MetricValue k)
+  => MetricFamily k
+  => MonadMetrics m
+  => MetricValue k -> k -> m ()
 setByKey value = modifyByKey (const value)
 
 -- Set the current value
-setByKey' :: (Ord k, Num (MetricValue k), MetricFamily k) => MetricValue k -> k -> Metrics -> IO ()
+setByKey' :: ()
+  => Ord k
+  => Num (MetricValue k)
+  => MetricFamily k
+  => MetricValue k
+  -> k
+  -> Metrics
+  -> IO ()
 setByKey' value = modifyByKey' (const value)
 
 -- Modify the current value with the supplied function
-modifyByKey :: (Ord k, Num (MetricValue k), MetricFamily k, MonadMetrics m) => (MetricValue k -> MetricValue k) -> k -> m ()
+modifyByKey :: ()
+  => Ord k
+  => Num (MetricValue k)
+  => MetricFamily k
+  => MonadMetrics m
+  => (MetricValue k -> MetricValue k)
+  -> k
+  -> m ()
 modifyByKey f key = do
   metrics <- Z.getMetrics
   liftIO $ modifyByKey' f key metrics
 
 -- Modify the current value with the supplied function
-modifyByKey' :: (Ord k, Num (MetricValue k), MetricFamily k) => (MetricValue k -> MetricValue k) -> k -> Metrics -> IO ()
+modifyByKey' :: ()
+  => Ord k
+  => Num (MetricValue k)
+  => MetricFamily k
+  => (MetricValue k -> MetricValue k)
+  -> k
+  -> Metrics
+  -> IO ()
 modifyByKey' f key metrics = do
   let tCounters = metricMapTVarOf metrics
   STM.atomically $ do
@@ -78,19 +130,28 @@ modifyByKey' f key metrics = do
         let counters' = M.insert key tv counters
         STM.writeTVar tCounters counters'
 
-valuesByKeys :: (Ord k, MetricFamily k, MonadMetrics m) => [k] -> m [MetricValue k]
+valuesByKeys :: ()
+  => Ord k
+  => MetricFamily k
+  => MonadMetrics m
+  => [k]
+  -> m [MetricValue k]
 valuesByKeys ks = do
   metricMap <- getMetricMap
   liftIO $ atomically $ sequence $ readTVar <$> ((metricMap M.!) <$> ks)
 
-extractValues :: MetricMap k (MetricValue k) -> STM ([(k, MetricValue k)], [TVar (MetricValue k)])
+extractValues :: ()
+  => MetricMap k (MetricValue k)
+  -> STM ([(k, MetricValue k)], [TVar (MetricValue k)])
 extractValues m = do
   let names = M.keys m
   let tvars = M.elems m
   nums <- sequence $ readTVar <$> tvars
   return (zip names nums, tvars)
 
-resetStats :: MonadMetrics m => m ()
+resetStats :: ()
+  => MonadMetrics m
+  => m ()
 resetStats = do
   metrics   <- Z.getMetrics
   counters  <- liftIO $ STM.readTVarIO $ metrics ^. the @"counters"
@@ -98,7 +159,11 @@ resetStats = do
   setZeroes counters
   setZeroes gauges
 
-setZeroes :: (MonadIO m, Num (MetricValue k)) => MetricMap k (MetricValue k) -> m ()
+setZeroes :: ()
+  => MonadIO m
+  => Num (MetricValue k)
+  => MetricMap k (MetricValue k)
+  -> m ()
 setZeroes cs = liftIO $ atomically $ do
   (_, tvars) <- extractValues cs
   traverse_ (`modifyTVar` const 0) tvars
