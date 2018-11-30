@@ -1,30 +1,33 @@
 #!/usr/bin/env bash
 
-STACK_FLAGS="
-  --flag bits-extra:bmi2
-  --flag hw-rankselect-base:bmi2
-  --flag hw-rankselect:bmi2
-"
+CABAL_FLAGS=""
 
-case $1 in
+cmd="$1"
+
+shift
+
+case "$cmd" in
   build)
-    stack build \
-      --test --no-run-tests --bench --no-run-benchmarks \
-      $STACK_FLAGS
+    hpack
+    cabal new-build \
+      $CABAL_FLAGS "$@"
     ;;
 
   test)
+    hpack
     stack test \
-      $STACK_FLAGS
+      $CABAL_FLAGS "$@"
     ;;
 
   bench)
+    hpack
     stack bench \
-      $STACK_FLAGS
+      $CABAL_FLAGS "$@"
     ;;
 
   repl)
+    hpack
     stack repl \
-      $STACK_FLAGS
+      $CABAL_FLAGS "$@"
     ;;
 esac
