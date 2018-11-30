@@ -30,7 +30,6 @@ import Data.Generics.Product.Any
 
 import qualified Arbor.Monad.Metric.Type as Z
 import qualified Control.Concurrent.STM  as STM
-import qualified Data.List               as DL
 import qualified Data.Map.Strict         as M
 
 newMetricsIO :: IO Metrics
@@ -82,9 +81,7 @@ modifyByKey' f metrics key = do
 
 -- Set the current value
 setByKey :: MonadMetrics m => Int -> CounterKey -> m ()
-setByKey value key = do
-  metrics <- Z.getMetrics
-  liftIO $ setByKey' value metrics key
+setByKey value = modifyByKey (const value)
 
 -- Set the current value
 setByKey' :: Int -> Metrics -> CounterKey -> IO ()
