@@ -5,7 +5,7 @@ module Arbor.Monad.Metric.Datadog
   ( logStats
   ) where
 
-import Arbor.Monad.Metric.Type   (CounterKey, MonadMetrics)
+import Arbor.Monad.Metric.Type   (Counter (..), MonadMetrics)
 import Control.Lens
 import Control.Monad.IO.Class
 import Control.Monad.STM         (atomically)
@@ -20,14 +20,14 @@ import qualified Data.Text                 as T
 
 logStats :: (S.MonadStats m, MonadMetrics m) => m ()
 logStats = do
-  (currents , _)  <- C.currentStats >>= liftIO . atomically . C.extractValues
+  (counters , _)  <- C.counterMetrics >>= liftIO . atomically . C.extractValues
 
   -- case DL.filter (\e -> snd e /= 0) deltas of
   --   nonzero -> unless (DL.null nonzero) $
   --     logInfoN $ T.pack $ DL.intercalate ", " $ (\(n, i) -> n <> ": " <> show i) <$> nonzero
 
-  traverse_ S.sendMetric $ currents & mkMetricsGaugeTagged "counters"
-  traverse_ S.sendMetric $ currents & mkMetricsGaugeNonTagged
+  traverse_ S.sendMetric $ mkMetricsCounterTagged "counters" counters
+  traverse_ S.sendMetric $ mkMetricsCounterNonTagged counters
 
 -- sendSummary :: (MonadIO m, MonadMetrics m, S.MonadStats m) => String -> Z.Tag -> String -> m ()
 -- sendSummary etitle etag fn = do
@@ -49,14 +49,14 @@ mkMetricsGaugeNonTagged =
   fmap (\(n, i) -> S.gauge (Z.MetricName (metricName n)) id i)
 
 -- create metric m, but tag with stat:[actual stat name]
-mkMetricsCounterTagged :: CounterKey -> [(String, Int)] -> [Z.Metric]
+mkMetricsCounterTagged :: String -> [(Counter, Int)] -> [Z.Metric]
 mkMetricsCounterTagged m =
-  fmap (\(n, i) -> S.addCounter (Z.MetricName (metricName m)) id i & the @"tags" %~ ([S.tag "stat" (T.pack n)] ++))
+  fmap (\(Counter n, i) -> S.addCounter (Z.MetricName (metricName m)) id i & the @"tags" %~ ([S.tag "stat" (T.pack n)] ++))
 
 -- create metrics for each counter
-mkMetricsCounterNonTagged :: [(String, Int)] -> [S.Metric]
+mkMetricsCounterNonTagged :: [(Counter, Int)] -> [S.Metric]
 mkMetricsCounterNonTagged =
-  fmap (\(n, i) -> S.addCounter (Z.MetricName (metricName n)) id i)
+  fmap (\(Counter n, i) -> S.addCounter (Z.MetricName (metricName n)) id i)
 
 mkEvent :: [(String, Int)] -> String -> Z.Tag -> String -> Z.Event
 mkEvent stats etitle etag fn = S.event (T.pack etitle) desc & the @"tags" %~ ([etag] ++)

@@ -16,10 +16,10 @@ module Arbor.Monad.Metric
   , resetStats
   , valuesByKeys
   , extractValues
-  , currentStats
+  , counterMetrics
   ) where
 
-import Arbor.Monad.Metric.Type     (CounterKey, MetricMap, Metrics (Metrics), MonadMetrics)
+import Arbor.Monad.Metric.Type     (Counter, Gauge, MetricMap, Metrics (Metrics), MonadMetrics)
 import Control.Concurrent.STM.TVar
 import Control.Lens
 import Control.Monad.IO.Class
@@ -37,37 +37,37 @@ newMetricsIO = Metrics
   <*> STM.newTVarIO M.empty
 
 -- Increase the current value by 1
-incByKey :: MonadMetrics m => CounterKey -> m ()
+incByKey :: MonadMetrics m => Counter -> m ()
 incByKey = modifyByKey (+1)
 
 -- Increase the current value by 1
-incByKey' :: Metrics -> CounterKey -> IO ()
+incByKey' :: Metrics -> Counter -> IO ()
 incByKey' = modifyByKey' (+1)
 
 -- Increase the current value by n
-addByKey :: MonadMetrics m => Int -> CounterKey -> m ()
+addByKey :: MonadMetrics m => Int -> Counter -> m ()
 addByKey n = modifyByKey (+n)
 
 -- Increase the current value by n
-addByKey' :: Int -> Metrics -> CounterKey -> IO ()
+addByKey' :: Int -> Metrics -> Counter -> IO ()
 addByKey' n = modifyByKey' (+n)
 
 -- Set the current value
-setByKey :: MonadMetrics m => Int -> CounterKey -> m ()
+setByKey :: MonadMetrics m => Int -> Counter -> m ()
 setByKey value = modifyByKey (const value)
 
 -- Set the current value
-setByKey' :: Int -> Metrics -> CounterKey -> IO ()
+setByKey' :: Int -> Metrics -> Counter -> IO ()
 setByKey' value = modifyByKey' (const value)
 
 -- Modify the current value with the supplied function
-modifyByKey :: MonadMetrics m => (Int -> Int) -> CounterKey -> m ()
+modifyByKey :: MonadMetrics m => (Int -> Int) -> Counter -> m ()
 modifyByKey f key = do
   metrics <- Z.getMetrics
   liftIO $ modifyByKey' f metrics key
 
 -- Modify the current value with the supplied function
-modifyByKey' :: (Int -> Int) -> Metrics -> CounterKey -> IO ()
+modifyByKey' :: (Int -> Int) -> Metrics -> Counter -> IO ()
 modifyByKey' f metrics key = do
   let tCounters = metrics ^. the @"counters"
   STM.atomically $ do
@@ -79,30 +79,31 @@ modifyByKey' f metrics key = do
         let counters' = M.insert key tv counters
         STM.writeTVar tCounters counters'
 
-valuesByKeys :: MonadMetrics m => [CounterKey] -> m [Int]
+valuesByKeys :: MonadMetrics m => [Counter] -> m [Int]
 valuesByKeys ks = do
   (Metrics tCounters _) <- Z.getMetrics
   counters <- liftIO $ STM.readTVarIO tCounters
   liftIO $ atomically $ sequence $ readTVar <$> ((counters M.!) <$> ks)
 
-extractValues :: MetricMap Int -> STM ([(CounterKey, Int)], [TVar Int])
+extractValues :: MetricMap k Int -> STM ([(k, Int)], [TVar Int])
 extractValues m = do
   let names = M.keys m
   let tvars = M.elems m
   nums <- sequence $ readTVar <$> tvars
   return (zip names nums, tvars)
 
-currentStats :: MonadMetrics m => m (MetricMap Int)
-currentStats = Z.getMetrics <&> (^. the @"counters") >>= liftIO . STM.readTVarIO
+counterMetrics :: MonadMetrics m => m (MetricMap Counter Int)
+counterMetrics = Z.getMetrics <&> (^. the @"counters") >>= liftIO . STM.readTVarIO
 
 resetStats :: MonadMetrics m => m ()
 resetStats = do
   metrics   <- Z.getMetrics
   counters  <- liftIO $ STM.readTVarIO $ metrics ^. the @"counters"
   gauges    <- liftIO $ STM.readTVarIO $ metrics ^. the @"gauges"
-  sequence_ $ setZeroes <$> [counters, gauges]
+  setZeroes counters
+  setZeroes gauges
 
-setZeroes :: MonadIO m => MetricMap Int -> m ()
+setZeroes :: MonadIO m => MetricMap k Int -> m ()
 setZeroes cs = liftIO $ atomically $ do
   (_, tvars) <- extractValues cs
   traverse_ (`modifyTVar` const 0) tvars

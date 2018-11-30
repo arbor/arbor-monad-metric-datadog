@@ -14,13 +14,19 @@ import GHC.Generics
 import qualified Control.Concurrent.STM as STM
 import qualified Data.Map.Strict        as M
 
-type CounterKey = String
+newtype Counter = Counter
+  { name :: String
+  } deriving (Eq, Ord, Show)
 
-type MetricMap v = M.Map CounterKey (STM.TVar v)
+newtype Gauge = Gauge
+  { name :: String
+  } deriving (Eq, Ord, Show)
+
+type MetricMap k v = M.Map k (STM.TVar v)
 
 data Metrics = Metrics
-  { counters :: STM.TVar (MetricMap Int)
-  , gauges   :: STM.TVar (MetricMap Int)
+  { counters :: STM.TVar (MetricMap Counter Int)
+  , gauges   :: STM.TVar (MetricMap Gauge   Int)
   } deriving (Generic)
 
 class (Monad m, MonadIO m) => MonadMetrics m where
