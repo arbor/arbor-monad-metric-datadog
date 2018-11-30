@@ -60,6 +60,14 @@ addByKey n = modifyByKey (+n)
 addByKey' :: Int -> Metrics -> CounterKey -> IO ()
 addByKey' n = modifyByKey' (+n)
 
+-- Set the current value
+setByKey :: MonadMetrics m => Int -> CounterKey -> m ()
+setByKey value = modifyByKey (const value)
+
+-- Set the current value
+setByKey' :: Int -> Metrics -> CounterKey -> IO ()
+setByKey' value = modifyByKey' (const value)
+
 -- Modify the current value with the supplied function
 modifyByKey :: MonadMetrics m => (Int -> Int) -> CounterKey -> m ()
 modifyByKey f key = do
@@ -78,14 +86,6 @@ modifyByKey' f metrics key = do
         tv <- STM.newTVar (f 0)
         let counters' = M.insert key tv counters
         STM.writeTVar tCounters counters'
-
--- Set the current value
-setByKey :: MonadMetrics m => Int -> CounterKey -> m ()
-setByKey value = modifyByKey (const value)
-
--- Set the current value
-setByKey' :: Int -> Metrics -> CounterKey -> IO ()
-setByKey' value = modifyByKey' (const value)
 
 valuesByKeys :: MonadMetrics m => [CounterKey] -> m [Int]
 valuesByKeys ks = do
