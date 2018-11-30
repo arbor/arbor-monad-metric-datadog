@@ -16,7 +16,6 @@ module Arbor.Monad.Metric
   , resetStats
   , valuesByKeys
   , extractValues
-  , newMetricsMap
   , currentStats
   ) where
 
@@ -36,13 +35,6 @@ newMetricsIO :: IO Metrics
 newMetricsIO = Metrics
   <$> STM.newTVarIO M.empty
   <*> STM.newTVarIO M.empty
-
-newMetricsMap :: [CounterKey] -> IO (M.Map CounterKey (STM.TVar Int))
-newMetricsMap (k:ks) = do
-  m <- newMetricsMap ks
-  v <- STM.newTVarIO 0
-  return $ M.insert k v m
-newMetricsMap [] = return M.empty
 
 -- Increase the current value by 1
 incByKey :: MonadMetrics m => CounterKey -> m ()
