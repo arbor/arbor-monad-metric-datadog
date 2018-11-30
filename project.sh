@@ -15,6 +15,12 @@ case "$cmd" in
 
   test)
     hpack
+    cabal new-test \
+      $CABAL_FLAGS "$@"
+    ;;
+
+  test)
+    hpack
     stack test \
       $CABAL_FLAGS "$@"
     ;;
@@ -30,4 +36,11 @@ case "$cmd" in
     stack repl \
       $CABAL_FLAGS "$@"
     ;;
+
+  exec)
+    hpack
+    stack exec \
+      $CABAL_FLAGS "$@"
+    ;;
 esac
+

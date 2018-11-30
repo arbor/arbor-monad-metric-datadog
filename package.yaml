@@ -32,6 +32,9 @@ dependencies:
 - resourcet
 - transformers
 
+- arbor-datadog
+- text
+
 library:
   source-dirs: src
   ghc-options:

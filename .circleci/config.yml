@@ -1,67 +1,3 @@
-defaults: &defaults
-  working_directory: ~/project
-  docker:
-    - image: quay.io/haskell_works/stack-build-postgres:18.04
-
-  steps:
-    - checkout
-
-    - run:
-        name: Remove Cabal file
-        command: rm -f *.cabal
-
-    - run:
-        name: Copying scripts
-        command: |
-          mkdir -p ~/.local/bin
-          cp ./scripts/* ~/.local/bin
-
-    - run:
-        name: Query resolver & ghc version
-        command: |
-          resolver "$(resolver $LTS)" > resolver.version
-          ghc-version $(cat resolver.version) >  ghc.version
-
-    - run:
-        name: Find all sub-projects
-        command: projects-summary > projects.summary
-
-    ##### Building library
-    - restore_cache:
-        keys:
-          - stack--{{ checksum "ghc.version" }}--{{ .Environment.CACHE_VERSION }}--{{ checksum "projects.summary" }}--{{ checksum "package.yaml" }}--{{ checksum "stack.yaml" }}
-          - stack--{{ checksum "ghc.version" }}--{{ .Environment.CACHE_VERSION }}--{{ checksum "projects.summary" }}--{{ checksum "package.yaml" }}
-          - stack--{{ checksum "ghc.version" }}--{{ .Environment.CACHE_VERSION }}--{{ checksum "projects.summary" }}--
-          - stack--{{ checksum "ghc.version" }}--{{ .Environment.CACHE_VERSION }}--X
-
-    - run:
-        name: Stack setup
-        command: stack setup --resolver ${LTS}
-
-    - save_cache:
-        key:    stack--{{ checksum "ghc.version" }}--{{ .Environment.CACHE_VERSION }}--X
-        paths:  [~/.stack, ~/project/.stack-work]
-
-    - run:
-        name: Building dependencies
-        command: |
-          stack build --resolver ${LTS} --dependencies-only
-          stack build --resolver ${LTS} --dependencies-only --test --no-run-tests
-
-    - save_cache:
-        key:    stack--{{ checksum "ghc.version" }}--{{ .Environment.CACHE_VERSION }}--{{ checksum "projects.summary" }}--{{ checksum "package.yaml" }}
-        paths:  [~/.stack, ~/project/.stack-work]
-
-    - run: stack build --resolver ${LTS} --test --no-run-tests
-
-    - save_cache:
-        key:    stack--{{ checksum "ghc.version" }}--{{ .Environment.CACHE_VERSION }}--{{ checksum "projects.summary" }}--{{ checksum "package.yaml" }}--{{ checksum "stack.yaml" }}
-        paths:  [~/.stack, ~/project/.stack-work]
-
-    ##### Running tests
-    - run:
-        name: Running tests against latest on hackage
-        command: stack test --resolver ${LTS}
 
 cabalbuild: &cabalbuild
   working_directory: ~/project
@@ -156,11 +92,6 @@ jobs:
       - image: quay.io/haskell_works/ghc-8.2.2:18.04_2018-09-24
     <<: *cabalbuild
 
-  lts-12:
-    environment:
-      - LTS: "lts-12"
-    <<: *defaults
-
   checked-builds:
     docker:
       - image: quay.io/haskell_works/ghc-8.4.3:18.04_2018-09-24
@@ -231,10 +162,10 @@ workflows:
     jobs:
       - ghc-8.4.3
       - ghc-8.2.2
-      - lts-12
       - checked-builds:
           requires:
-            - lts-12
+            - ghc-8.4.3
+            - ghc-8.2.2
           filters:
             branches:
               only: master
