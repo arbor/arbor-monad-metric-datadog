@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-CABAL_FLAGS=""
+CABAL_FLAGS="-j8"
 
 cmd="$1"
 
