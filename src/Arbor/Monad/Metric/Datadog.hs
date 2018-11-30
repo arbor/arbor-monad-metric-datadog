@@ -5,7 +5,7 @@ module Arbor.Monad.Metric.Datadog
   ( logStats
   ) where
 
-import Arbor.Monad.Metric.Type   (CounterKey, MonadCounters)
+import Arbor.Monad.Metric.Type   (CounterKey, MonadMetrics)
 import Control.Lens
 import Control.Monad.IO.Class
 import Control.Monad.STM         (atomically)
@@ -18,7 +18,7 @@ import qualified Arbor.Network.StatsD      as S
 import qualified Arbor.Network.StatsD.Type as Z
 import qualified Data.Text                 as T
 
-logStats :: (S.MonadStats m, MonadCounters m) => m ()
+logStats :: (S.MonadStats m, MonadMetrics m) => m ()
 logStats = do
   (currents , _)  <- C.currentStats >>= liftIO . atomically . C.extractValues
 
@@ -29,7 +29,7 @@ logStats = do
   traverse_ S.sendMetric $ currents & mkMetricsGaugeTagged "counters"
   traverse_ S.sendMetric $ currents & mkMetricsGaugeNonTagged
 
--- sendSummary :: (MonadIO m, MonadCounters m, S.MonadStats m) => String -> Z.Tag -> String -> m ()
+-- sendSummary :: (MonadIO m, MonadMetrics m, S.MonadStats m) => String -> Z.Tag -> String -> m ()
 -- sendSummary etitle etag fn = do
 --   counters    <- Z.getCounters
 --   (stats, _)  <- liftIO $ atomically $ C.extractValues $ counters ^. the @"previous"

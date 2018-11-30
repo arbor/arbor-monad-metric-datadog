@@ -3,46 +3,43 @@
 
 module Arbor.Monad.Metric.Type where
 
-import Control.Concurrent.STM.TVar
 import Control.Monad.Except
 import Control.Monad.Reader
 import Control.Monad.State
 import Control.Monad.Trans.Identity
 import Control.Monad.Trans.Maybe
 import Control.Monad.Trans.Resource
-import Data.Map.Strict
 import GHC.Generics
+
+import qualified Control.Concurrent.STM as STM
+import qualified Data.Map.Strict        as M
 
 type CounterKey = String
 
-newtype CounterValue = CounterValue
-  { var   :: TVar Int
+type MetricMap v = M.Map CounterKey (STM.TVar v)
+
+data Metrics = Metrics
+  { counters :: STM.TVar (MetricMap Int)
+  , gauges   :: STM.TVar (MetricMap Int)
   } deriving (Generic)
 
-type CountersMap = Map CounterKey CounterValue
+class (Monad m, MonadIO m) => MonadMetrics m where
+  getMetrics :: m Metrics
 
-data Counters = Counters
-  { current  :: CountersMap
-  , previous :: CountersMap
-  } deriving (Generic)
+instance MonadMetrics m => MonadMetrics (ExceptT e m) where
+  getMetrics = lift getMetrics
 
-class (Monad m, MonadIO m) => MonadCounters m where
-  getCounters :: m Counters
+instance MonadMetrics m => MonadMetrics (IdentityT m) where
+  getMetrics = lift getMetrics
 
-instance MonadCounters m => MonadCounters (ExceptT e m) where
-  getCounters = lift getCounters
+instance MonadMetrics m => MonadMetrics (MaybeT m) where
+  getMetrics = lift getMetrics
 
-instance MonadCounters m => MonadCounters (IdentityT m) where
-  getCounters = lift getCounters
+instance MonadMetrics m => MonadMetrics (ReaderT e m) where
+  getMetrics = lift getMetrics
 
-instance MonadCounters m => MonadCounters (MaybeT m) where
-  getCounters = lift getCounters
+instance MonadMetrics m => MonadMetrics (ResourceT m) where
+  getMetrics = lift getMetrics
 
-instance MonadCounters m => MonadCounters (ReaderT e m) where
-  getCounters = lift getCounters
-
-instance MonadCounters m => MonadCounters (ResourceT m) where
-  getCounters = lift getCounters
-
-instance MonadCounters m => MonadCounters (StateT s m) where
-  getCounters = lift getCounters
+instance MonadMetrics m => MonadMetrics (StateT s m) where
+  getMetrics = lift getMetrics

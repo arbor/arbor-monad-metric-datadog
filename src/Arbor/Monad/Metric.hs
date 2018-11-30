@@ -2,8 +2,8 @@
 {-# LANGUAGE TypeApplications #-}
 
 module Arbor.Monad.Metric
-  ( MonadCounters
-  , Z.getCounters
+  ( MonadMetrics
+  , Z.getMetrics
 
   , incByKey
   , incByKey'
@@ -12,16 +12,15 @@ module Arbor.Monad.Metric
   , setByKey
   , setByKey'
 
-  , newCounters
+  , newMetricsIO
   , resetStats
   , valuesByKeys
   , extractValues
-  , newCountersMap
-  , deltaStats
+  , newMetricsMap
   , currentStats
   ) where
 
-import Arbor.Monad.Metric.Type     (CounterKey, CounterValue (CounterValue), Counters (Counters), CountersMap, MonadCounters)
+import Arbor.Monad.Metric.Type     (CounterKey, MetricMap, Metrics (Metrics), MonadMetrics)
 import Control.Concurrent.STM.TVar
 import Control.Lens
 import Control.Monad.IO.Class
@@ -30,98 +29,88 @@ import Data.Foldable
 import Data.Generics.Product.Any
 
 import qualified Arbor.Monad.Metric.Type as Z
+import qualified Control.Concurrent.STM  as STM
 import qualified Data.List               as DL
 import qualified Data.Map.Strict         as M
 
-newCounters :: [CounterKey] -> IO Counters
-newCounters ks = Counters <$> newCountersMap ks <*> newCountersMap ks
+newMetricsIO :: IO Metrics
+newMetricsIO = Metrics
+  <$> STM.newTVarIO M.empty
+  <*> STM.newTVarIO M.empty
 
-newCountersMap :: [CounterKey] -> IO CountersMap
-newCountersMap (k:ks) = do
-  m <- newCountersMap ks
-  v <- CounterValue <$> newTVarIO 0
+newMetricsMap :: [CounterKey] -> IO (M.Map CounterKey (STM.TVar Int))
+newMetricsMap (k:ks) = do
+  m <- newMetricsMap ks
+  v <- STM.newTVarIO 0
   return $ M.insert k v m
-newCountersMap [] = return M.empty
+newMetricsMap [] = return M.empty
 
 -- Increase the current value by 1
-incByKey :: MonadCounters m => CounterKey -> m ()
+incByKey :: MonadMetrics m => CounterKey -> m ()
 incByKey = modifyByKey (+1)
 
 -- Increase the current value by 1
-incByKey' :: Counters -> CounterKey -> IO ()
+incByKey' :: Metrics -> CounterKey -> IO ()
 incByKey' = modifyByKey' (+1)
 
 -- Increase the current value by n
-addByKey :: MonadCounters m => Int -> CounterKey -> m ()
+addByKey :: MonadMetrics m => Int -> CounterKey -> m ()
 addByKey n = modifyByKey (+n)
 
 -- Increase the current value by n
-addByKey' :: Int -> Counters -> CounterKey -> IO ()
+addByKey' :: Int -> Metrics -> CounterKey -> IO ()
 addByKey' n = modifyByKey' (+n)
 
 -- Modify the current value with the supplied function
-modifyByKey :: MonadCounters m => (Int -> Int) -> CounterKey -> m ()
+modifyByKey :: MonadMetrics m => (Int -> Int) -> CounterKey -> m ()
 modifyByKey f key = do
-  counters <- Z.getCounters
-  liftIO $ modifyByKey' f counters key
+  metrics <- Z.getMetrics
+  liftIO $ modifyByKey' f metrics key
 
 -- Modify the current value with the supplied function
-modifyByKey' :: (Int -> Int) -> Counters -> CounterKey -> IO ()
-modifyByKey' f (Counters cur _) key = do
-  let (CounterValue tv) = cur M.! key
+modifyByKey' :: (Int -> Int) -> Metrics -> CounterKey -> IO ()
+modifyByKey' f (Metrics tCounters _) key = do
+  counters <- STM.readTVarIO tCounters
+  let tv = counters M.! key
   atomically $ modifyTVar tv f
 
 -- Set the current value
-setByKey :: MonadCounters m => Int -> CounterKey -> m ()
+setByKey :: MonadMetrics m => Int -> CounterKey -> m ()
 setByKey value key = do
-  counters <- Z.getCounters
-  liftIO $ setByKey' value counters key
+  metrics <- Z.getMetrics
+  liftIO $ setByKey' value metrics key
 
 -- Set the current value
-setByKey' :: Int -> Counters -> CounterKey -> IO ()
-setByKey' value (Counters cur _) key = do
-  let (CounterValue tv) = cur M.! key
+setByKey' :: Int -> Metrics -> CounterKey -> IO ()
+setByKey' value (Metrics tCounters _) key = do
+  counters <- STM.readTVarIO tCounters
+  let tv = counters M.! key
   atomically $ writeTVar tv value
 
-valuesByKeys :: MonadCounters m => [CounterKey] -> m [Int]
+valuesByKeys :: MonadMetrics m => [CounterKey] -> m [Int]
 valuesByKeys ks = do
-  (Counters cur _) <- Z.getCounters
-  liftIO $ atomically $ sequence $ readTVar <$> ((\k -> cur M.! k ^. the @"var") <$> ks)
+  (Metrics tCounters _) <- Z.getMetrics
+  counters <- liftIO $ STM.readTVarIO tCounters
+  liftIO $ atomically $ sequence $ readTVar <$> ((counters M.!) <$> ks)
 
-extractValues :: CountersMap -> STM ([(CounterKey, Int)], [TVar Int])
+extractValues :: MetricMap Int -> STM ([(CounterKey, Int)], [TVar Int])
 extractValues m = do
   let names = M.keys m
-  let tvars = (^. the @"var") <$> M.elems m
+  let tvars = M.elems m
   nums <- sequence $ readTVar <$> tvars
   return (zip names nums, tvars)
 
--- store the current stats into previous;
--- calculate the delta
-deltaStats :: MonadCounters m => m CountersMap
-deltaStats = do
-  counters <- Z.getCounters
-  deltas <- liftIO $ newCountersMap $ M.keys $ counters ^. the @"current"
-  -- deltaCounters is accumulated into based on the diff between last and current counter values.
-  liftIO $ atomically $ do
-    (_, oldTvars)   <- extractValues $ counters ^. the @"previous"
-    (_, newTvars)   <- extractValues $ counters ^. the @"current"
-    (_, deltaTvars) <- extractValues deltas
-    for_ (DL.zip3 oldTvars newTvars deltaTvars) $ \(old, new, delta) -> do
-      new' <- readTVar new
-      old' <- readTVar old
-      writeTVar old new'
-      writeTVar delta (new' - old')
-    return deltas
+currentStats :: MonadMetrics m => m (MetricMap Int)
+currentStats = Z.getMetrics <&> (^. the @"counters") >>= liftIO . STM.readTVarIO
 
-currentStats :: MonadCounters m => m CountersMap
-currentStats = Z.getCounters <&> (^. the @"current")
-
-resetStats :: MonadCounters m => m ()
+resetStats :: MonadMetrics m => m ()
 resetStats = do
-  counters <- Z.getCounters
-  sequence_ $ setZeroes <$> [counters ^. the @"current", counters ^. the @"previous"]
+  metrics   <- Z.getMetrics
+  counters  <- liftIO $ STM.readTVarIO $ metrics ^. the @"counters"
+  gauges    <- liftIO $ STM.readTVarIO $ metrics ^. the @"gauges"
+  sequence_ $ setZeroes <$> [counters, gauges]
 
-setZeroes :: MonadIO m => CountersMap -> m ()
+setZeroes :: MonadIO m => MetricMap Int -> m ()
 setZeroes cs = liftIO $ atomically $ do
   (_, tvars) <- extractValues cs
   traverse_ (`modifyTVar` const 0) tvars
