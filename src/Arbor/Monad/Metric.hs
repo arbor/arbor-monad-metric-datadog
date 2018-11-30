@@ -16,10 +16,9 @@ module Arbor.Monad.Metric
   , resetStats
   , valuesByKeys
   , extractValues
-  , counterMetrics
   ) where
 
-import Arbor.Monad.Metric.Type     (Counter, Gauge, MetricMap, Metrics (Metrics), MonadMetrics)
+import Arbor.Monad.Metric.Type     (Counter, Gauge, MetricFamily (..), MetricMap, Metrics (Metrics), MonadMetrics, getMetricMap, getMetricMapTVar)
 import Control.Concurrent.STM.TVar
 import Control.Lens
 import Control.Monad.IO.Class
@@ -37,39 +36,39 @@ newMetricsIO = Metrics
   <*> STM.newTVarIO M.empty
 
 -- Increase the current value by 1
-incByKey :: MonadMetrics m => Counter -> m ()
+incByKey :: (Ord k, Num (MetricValue k), MetricFamily k) => MonadMetrics m => k -> m ()
 incByKey = modifyByKey (+1)
 
 -- Increase the current value by 1
-incByKey' :: Metrics -> Counter -> IO ()
+incByKey' :: (Ord k, Num (MetricValue k), MetricFamily k) => k -> Metrics -> IO ()
 incByKey' = modifyByKey' (+1)
 
 -- Increase the current value by n
-addByKey :: MonadMetrics m => Int -> Counter -> m ()
+addByKey :: (Ord k, Num (MetricValue k), MetricFamily k, MonadMetrics m) => MetricValue k -> k -> m ()
 addByKey n = modifyByKey (+n)
 
 -- Increase the current value by n
-addByKey' :: Int -> Metrics -> Counter -> IO ()
+addByKey' :: (Ord k, Num (MetricValue k), MetricFamily k) => MetricValue k -> k -> Metrics -> IO ()
 addByKey' n = modifyByKey' (+n)
 
 -- Set the current value
-setByKey :: MonadMetrics m => Int -> Counter -> m ()
+setByKey :: (Ord k, Num (MetricValue k), MetricFamily k, MonadMetrics m) => MetricValue k -> k -> m ()
 setByKey value = modifyByKey (const value)
 
 -- Set the current value
-setByKey' :: Int -> Metrics -> Counter -> IO ()
+setByKey' :: (Ord k, Num (MetricValue k), MetricFamily k) => MetricValue k -> k -> Metrics -> IO ()
 setByKey' value = modifyByKey' (const value)
 
 -- Modify the current value with the supplied function
-modifyByKey :: MonadMetrics m => (Int -> Int) -> Counter -> m ()
+modifyByKey :: (Ord k, Num (MetricValue k), MetricFamily k, MonadMetrics m) => (MetricValue k -> MetricValue k) -> k -> m ()
 modifyByKey f key = do
   metrics <- Z.getMetrics
-  liftIO $ modifyByKey' f metrics key
+  liftIO $ modifyByKey' f key metrics
 
 -- Modify the current value with the supplied function
-modifyByKey' :: (Int -> Int) -> Metrics -> Counter -> IO ()
-modifyByKey' f metrics key = do
-  let tCounters = metrics ^. the @"counters"
+modifyByKey' :: (Ord k, Num (MetricValue k), MetricFamily k) => (MetricValue k -> MetricValue k) -> k -> Metrics -> IO ()
+modifyByKey' f key metrics = do
+  let tCounters = metricMapTVarOf metrics
   STM.atomically $ do
     counters <- STM.readTVar tCounters
     case counters M.!? key of
@@ -79,21 +78,17 @@ modifyByKey' f metrics key = do
         let counters' = M.insert key tv counters
         STM.writeTVar tCounters counters'
 
-valuesByKeys :: MonadMetrics m => [Counter] -> m [Int]
+valuesByKeys :: (Ord k, MetricFamily k, MonadMetrics m) => [k] -> m [MetricValue k]
 valuesByKeys ks = do
-  (Metrics tCounters _) <- Z.getMetrics
-  counters <- liftIO $ STM.readTVarIO tCounters
-  liftIO $ atomically $ sequence $ readTVar <$> ((counters M.!) <$> ks)
+  metricMap <- getMetricMap
+  liftIO $ atomically $ sequence $ readTVar <$> ((metricMap M.!) <$> ks)
 
-extractValues :: MetricMap k Int -> STM ([(k, Int)], [TVar Int])
+extractValues :: MetricMap k (MetricValue k) -> STM ([(k, MetricValue k)], [TVar (MetricValue k)])
 extractValues m = do
   let names = M.keys m
   let tvars = M.elems m
   nums <- sequence $ readTVar <$> tvars
   return (zip names nums, tvars)
-
-counterMetrics :: MonadMetrics m => m (MetricMap Counter Int)
-counterMetrics = Z.getMetrics <&> (^. the @"counters") >>= liftIO . STM.readTVarIO
 
 resetStats :: MonadMetrics m => m ()
 resetStats = do
@@ -103,7 +98,7 @@ resetStats = do
   setZeroes counters
   setZeroes gauges
 
-setZeroes :: MonadIO m => MetricMap k Int -> m ()
+setZeroes :: (MonadIO m, Num (MetricValue k)) => MetricMap k (MetricValue k) -> m ()
 setZeroes cs = liftIO $ atomically $ do
   (_, tvars) <- extractValues cs
   traverse_ (`modifyTVar` const 0) tvars

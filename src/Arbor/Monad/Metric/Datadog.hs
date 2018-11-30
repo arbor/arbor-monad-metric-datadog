@@ -5,7 +5,7 @@ module Arbor.Monad.Metric.Datadog
   ( logStats
   ) where
 
-import Arbor.Monad.Metric.Type   (Counter (..), MonadMetrics)
+import Arbor.Monad.Metric.Type   (Counter (..), MonadMetrics, getMetricMap)
 import Control.Lens
 import Control.Monad.IO.Class
 import Control.Monad.STM         (atomically)
@@ -20,7 +20,7 @@ import qualified Data.Text                 as T
 
 logStats :: (S.MonadStats m, MonadMetrics m) => m ()
 logStats = do
-  (counters , _)  <- C.counterMetrics >>= liftIO . atomically . C.extractValues
+  (counters , _)  <- getMetricMap >>= liftIO . atomically . C.extractValues
 
   -- case DL.filter (\e -> snd e /= 0) deltas of
   --   nonzero -> unless (DL.null nonzero) $

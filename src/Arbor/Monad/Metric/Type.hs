@@ -1,14 +1,19 @@
+{-# LANGUAGE DataKinds             #-}
 {-# LANGUAGE DeriveGeneric         #-}
 {-# LANGUAGE DuplicateRecordFields #-}
+{-# LANGUAGE TypeApplications      #-}
+{-# LANGUAGE TypeFamilies          #-}
 
 module Arbor.Monad.Metric.Type where
 
+import Control.Lens
 import Control.Monad.Except
 import Control.Monad.Reader
 import Control.Monad.State
 import Control.Monad.Trans.Identity
 import Control.Monad.Trans.Maybe
 import Control.Monad.Trans.Resource
+import Data.Generics.Product.Any
 import GHC.Generics
 
 import qualified Control.Concurrent.STM as STM
@@ -25,8 +30,8 @@ newtype Gauge = Gauge
 type MetricMap k v = M.Map k (STM.TVar v)
 
 data Metrics = Metrics
-  { counters :: STM.TVar (MetricMap Counter Int)
-  , gauges   :: STM.TVar (MetricMap Gauge   Int)
+  { counters :: STM.TVar (MetricMap Counter (MetricValue Counter))
+  , gauges   :: STM.TVar (MetricMap Gauge   (MetricValue Gauge  ))
   } deriving (Generic)
 
 class (Monad m, MonadIO m) => MonadMetrics m where
@@ -49,3 +54,21 @@ instance MonadMetrics m => MonadMetrics (ResourceT m) where
 
 instance MonadMetrics m => MonadMetrics (StateT s m) where
   getMetrics = lift getMetrics
+
+class MetricFamily k where
+  type MetricValue k
+  metricMapTVarOf :: Metrics -> STM.TVar (MetricMap k (MetricValue k))
+
+getMetricMapTVar :: (MetricFamily k, MonadMetrics m) => m (STM.TVar (MetricMap k (MetricValue k)))
+getMetricMapTVar = getMetrics <&> metricMapTVarOf
+
+getMetricMap :: (MetricFamily k, MonadMetrics m) => m (MetricMap k (MetricValue k))
+getMetricMap = liftIO . STM.readTVarIO =<< getMetricMapTVar
+
+instance MetricFamily Counter where
+  type MetricValue Counter = Int
+  metricMapTVarOf = (^. the @"counters")
+
+instance MetricFamily Gauge where
+  type MetricValue Gauge = Double
+  metricMapTVarOf = (^. the @"gauges")
