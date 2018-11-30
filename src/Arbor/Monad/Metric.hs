@@ -69,10 +69,16 @@ modifyByKey f key = do
 
 -- Modify the current value with the supplied function
 modifyByKey' :: (Int -> Int) -> Metrics -> CounterKey -> IO ()
-modifyByKey' f (Metrics tCounters _) key = do
-  counters <- STM.readTVarIO tCounters
-  let tv = counters M.! key
-  atomically $ modifyTVar tv f
+modifyByKey' f metrics key = do
+  let tCounters = metrics ^. the @"counters"
+  STM.atomically $ do
+    counters <- STM.readTVar tCounters
+    case counters M.!? key of
+      Just tv -> modifyTVar tv f
+      Nothing -> do
+        tv <- STM.newTVar (f 0)
+        let counters' = M.insert key tv counters
+        STM.writeTVar tCounters counters'
 
 -- Set the current value
 setByKey :: MonadMetrics m => Int -> CounterKey -> m ()
@@ -82,10 +88,7 @@ setByKey value key = do
 
 -- Set the current value
 setByKey' :: Int -> Metrics -> CounterKey -> IO ()
-setByKey' value (Metrics tCounters _) key = do
-  counters <- STM.readTVarIO tCounters
-  let tv = counters M.! key
-  atomically $ writeTVar tv value
+setByKey' value = modifyByKey' (const value)
 
 valuesByKeys :: MonadMetrics m => [CounterKey] -> m [Int]
 valuesByKeys ks = do
