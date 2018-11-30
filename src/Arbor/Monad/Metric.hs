@@ -18,7 +18,7 @@ module Arbor.Monad.Metric
   , extractValues
   ) where
 
-import Arbor.Monad.Metric.Type     (Counter, Gauge, MetricFamily (..), MetricMap, Metrics (Metrics), MonadMetrics, getMetricMap, getMetricMapTVar)
+import Arbor.Monad.Metric.Type     (MetricFamily (..), MetricMap, Metrics (Metrics), MonadMetrics, getMetricMap)
 import Control.Concurrent.STM.TVar
 import Control.Lens
 import Control.Monad.IO.Class

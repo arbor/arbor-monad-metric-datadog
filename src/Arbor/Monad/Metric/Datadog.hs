@@ -1,14 +1,15 @@
-{-# LANGUAGE DataKinds        #-}
-{-# LANGUAGE TypeApplications #-}
+{-# LANGUAGE DataKinds           #-}
+{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TypeApplications    #-}
 
 module Arbor.Monad.Metric.Datadog
   ( logStats
+  , mkEvent
   ) where
 
-import Arbor.Monad.Metric.Type   (Counter (..), MonadMetrics, getMetricMap)
+import Arbor.Monad.Metric.Type   (Counter (..), Gauge (..), MonadMetrics, getMetricMapTVar)
 import Control.Lens
 import Control.Monad.IO.Class
-import Control.Monad.STM         (atomically)
 import Data.Foldable
 import Data.Generics.Product.Any
 import Data.Semigroup            ((<>))
@@ -16,37 +17,34 @@ import Data.Semigroup            ((<>))
 import qualified Arbor.Monad.Metric        as C
 import qualified Arbor.Network.StatsD      as S
 import qualified Arbor.Network.StatsD.Type as Z
+import qualified Control.Concurrent.STM    as STM
+import qualified Data.Map.Strict           as M
 import qualified Data.Text                 as T
 
 logStats :: (S.MonadStats m, MonadMetrics m) => m ()
 logStats = do
-  (counters , _)  <- getMetricMap >>= liftIO . atomically . C.extractValues
-
-  -- case DL.filter (\e -> snd e /= 0) deltas of
-  --   nonzero -> unless (DL.null nonzero) $
-  --     logInfoN $ T.pack $ DL.intercalate ", " $ (\(n, i) -> n <> ": " <> show i) <$> nonzero
-
+  tCounterMap <- getMetricMapTVar
+  (counters, _)  <- liftIO . STM.atomically $ STM.swapTVar tCounterMap M.empty >>= C.extractValues
   traverse_ S.sendMetric $ mkMetricsCounterTagged "counters" counters
   traverse_ S.sendMetric $ mkMetricsCounterNonTagged counters
 
--- sendSummary :: (MonadIO m, MonadMetrics m, S.MonadStats m) => String -> Z.Tag -> String -> m ()
--- sendSummary etitle etag fn = do
---   counters    <- Z.getCounters
---   (stats, _)  <- liftIO $ atomically $ C.extractValues $ counters ^. the @"previous"
---   S.sendEvent (mkEvent stats etitle etag fn)
+  tGaugeMap <- getMetricMapTVar
+  (gauge, _)  <- liftIO . STM.atomically $ STM.swapTVar tGaugeMap M.empty >>= C.extractValues
+  traverse_ S.sendMetric $ mkMetricsGaugeTagged "gauge" gauge
+  traverse_ S.sendMetric $ mkMetricsGaugeNonTagged gauge
 
 metricName :: String -> T.Text
 metricName n = T.replace " " "_" (T.pack n)
 
 -- create metric m, but tag with stat:[actual stat name]
-mkMetricsGaugeTagged :: String -> [(String, Int)] -> [Z.Metric]
+mkMetricsGaugeTagged :: String -> [(Gauge, Double)] -> [Z.Metric]
 mkMetricsGaugeTagged m =
-  fmap (\(n, i) -> S.gauge (Z.MetricName (metricName m)) id i & the @"tags" %~ ([S.tag "stat" (T.pack n)] ++))
+  fmap (\(Gauge n, i) -> S.gauge (Z.MetricName (metricName m)) id i & the @"tags" %~ ([S.tag "stat" (T.pack n)] ++))
 
 -- create metrics for each counter
-mkMetricsGaugeNonTagged :: [(String, Int)] -> [S.Metric]
+mkMetricsGaugeNonTagged :: [(Gauge, Double)] -> [S.Metric]
 mkMetricsGaugeNonTagged =
-  fmap (\(n, i) -> S.gauge (Z.MetricName (metricName n)) id i)
+  fmap (\(Gauge n, i) -> S.gauge (Z.MetricName (metricName n)) id i)
 
 -- create metric m, but tag with stat:[actual stat name]
 mkMetricsCounterTagged :: String -> [(Counter, Int)] -> [Z.Metric]
