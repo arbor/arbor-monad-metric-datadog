@@ -18,29 +18,4 @@ case "$cmd" in
     cabal new-test \
       $CABAL_FLAGS "$@"
     ;;
-
-  test)
-    hpack
-    stack test \
-      $CABAL_FLAGS "$@"
-    ;;
-
-  bench)
-    hpack
-    stack bench \
-      $CABAL_FLAGS "$@"
-    ;;
-
-  repl)
-    hpack
-    stack repl \
-      $CABAL_FLAGS "$@"
-    ;;
-
-  exec)
-    hpack
-    stack exec \
-      $CABAL_FLAGS "$@"
-    ;;
 esac
-

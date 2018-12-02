@@ -14,7 +14,7 @@
   },
   "tasks": [
     {
-      "taskName": "stack build",
+      "taskName": "project build",
       "isBuildCommand": true,
       "args": [
         "echo START_BUILD && cd ${workspaceRoot} && ./project.sh build && echo END_BUILD "
@@ -36,7 +36,7 @@
     },
     {
       "isTestCommand": true,
-      "taskName": "stack test",
+      "taskName": "project test",
       "args": [
         "echo START_TEST && cd ${workspaceRoot} && ./project.sh test && echo END_TEST "
       ],
