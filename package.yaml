@@ -24,10 +24,12 @@ default-extensions:
 
 dependencies:
 - base >=4.7 && <5
+- bytestring
 - containers
 - generic-lens
 - lens
 - mtl
+- network
 - stm
 - resourcet
 - transformers
