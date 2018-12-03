@@ -12,6 +12,7 @@ import Control.Lens
 import Control.Monad.IO.Class
 import Data.Foldable
 import Data.Generics.Product.Any
+import Data.Proxy
 import Data.Semigroup            ((<>))
 
 import qualified Arbor.Monad.Metric        as C
@@ -24,12 +25,12 @@ import qualified Data.Text                 as T
 logStats :: (S.MonadStats m, MonadMetrics m) => m ()
 logStats = do
   tCounterMap <- getMetricMapTVar
-  (counters, _)  <- liftIO . STM.atomically $ STM.swapTVar tCounterMap M.empty >>= C.extractValues
+  (counters, _)  <- liftIO . STM.atomically $ STM.swapTVar tCounterMap M.empty >>= C.extractValues (Proxy @Counter)
   traverse_ S.sendMetric $ mkMetricsCounterTagged "counters" counters
   traverse_ S.sendMetric $ mkMetricsCounterNonTagged counters
 
   tGaugeMap <- getMetricMapTVar
-  (gauge, _)  <- liftIO . STM.atomically $ STM.swapTVar tGaugeMap M.empty >>= C.extractValues
+  (gauge, _)  <- liftIO . STM.atomically $ STM.swapTVar tGaugeMap M.empty >>= C.extractValues (Proxy @Gauge)
   traverse_ S.sendMetric $ mkMetricsGaugeTagged "gauge" gauge
   traverse_ S.sendMetric $ mkMetricsGaugeNonTagged gauge
 
