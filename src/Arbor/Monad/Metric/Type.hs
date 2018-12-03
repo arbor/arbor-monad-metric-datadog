@@ -14,6 +14,8 @@ import Control.Monad.Trans.Identity
 import Control.Monad.Trans.Maybe
 import Control.Monad.Trans.Resource
 import Data.Generics.Product.Any
+import Data.Proxy
+import Data.Semigroup
 import GHC.Generics
 
 import qualified Control.Concurrent.STM as STM
@@ -30,8 +32,8 @@ newtype Gauge = Gauge
 type MetricMap k v = M.Map k (STM.TVar v)
 
 data Metrics = Metrics
-  { counters :: STM.TVar (MetricMap Counter (MetricValue Counter))
-  , gauges   :: STM.TVar (MetricMap Gauge   (MetricValue Gauge  ))
+  { counters :: STM.TVar (MetricMap Counter (MetricState Counter))
+  , gauges   :: STM.TVar (MetricMap Gauge   (MetricState Gauge  ))
   } deriving (Generic)
 
 class (Monad m, MonadIO m) => MonadMetrics m where
@@ -57,18 +59,27 @@ instance MonadMetrics m => MonadMetrics (StateT s m) where
 
 class MetricFamily k where
   type MetricValue k
-  metricMapTVarOf :: Metrics -> STM.TVar (MetricMap k (MetricValue k))
+  type MetricState k
+  metricMapTVarOf :: Metrics -> STM.TVar (MetricMap k (MetricState k))
+  metricValueToState :: Proxy k -> MetricValue k -> MetricState k
+  metricStateToValue :: Proxy k -> MetricState k -> MetricValue k
 
-getMetricMapTVar :: (MetricFamily k, MonadMetrics m) => m (STM.TVar (MetricMap k (MetricValue k)))
+getMetricMapTVar :: (MetricFamily k, MonadMetrics m) => m (STM.TVar (MetricMap k (MetricState k)))
 getMetricMapTVar = getMetrics <&> metricMapTVarOf
 
-getMetricMap :: (MetricFamily k, MonadMetrics m) => m (MetricMap k (MetricValue k))
+getMetricMap :: (MetricFamily k, MonadMetrics m) => m (MetricMap k (MetricState k))
 getMetricMap = liftIO . STM.readTVarIO =<< getMetricMapTVar
 
 instance MetricFamily Counter where
   type MetricValue Counter = Int
+  type MetricState Counter = Sum Int
   metricMapTVarOf = (^. the @"counters")
+  metricValueToState _ = Sum
+  metricStateToValue _ = getSum
 
 instance MetricFamily Gauge where
   type MetricValue Gauge = Double
+  type MetricState Gauge = Last Double
   metricMapTVarOf = (^. the @"gauges")
+  metricValueToState _ = Last
+  metricStateToValue _ = getLast
