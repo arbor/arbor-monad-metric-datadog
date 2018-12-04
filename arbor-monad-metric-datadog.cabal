@@ -1,0 +1,82 @@
+name:           arbor-monad-metric-datadog
+version:        0.0.1
+description:    Please see the README on Github at <https://github.com/arbor/arbor-monad-metric-datadog#readme>
+category:       Services
+homepage:       https://github.com/arbor/arbor-monad-metric-datadog#readme
+bug-reports:    https://github.com/arbor/arbor-monad-metric-datadog/issues
+author:         Arbor Networks
+maintainer:     mayhem@arbor.net
+copyright:      Arbor Networks
+license:        MIT
+license-file:   LICENSE
+build-type:     Simple
+cabal-version:  >= 1.10
+extra-source-files:
+    ChangeLog.md
+    README.md
+
+source-repository head
+  type: git
+  location: https://github.com/arbor/arbor-monad-metric-datadog
+
+library
+  exposed-modules:
+      Arbor.Monad.Metric
+      Arbor.Monad.Metric.Datadog
+      Arbor.Monad.Metric.Generic
+      Arbor.Monad.Metric.Type
+  other-modules:
+      Paths_arbor_monad_metric_datadog
+  hs-source-dirs:
+      src
+  default-extensions: BangPatterns FlexibleContexts FlexibleInstances GeneralizedNewtypeDeriving MultiParamTypeClasses OverloadedStrings TupleSections
+  ghc-options: -Wall -Wcompat -Wincomplete-record-updates -Wincomplete-uni-patterns -Wredundant-constraints
+  build-depends:
+      arbor-datadog
+    , base >=4.7 && <5
+    , bytestring
+    , containers
+    , generic-lens
+    , lens
+    , mtl
+    , network
+    , resourcet
+    , stm
+    , text
+    , transformers
+  default-language: Haskell2010
+
+test-suite arbor-monad-metric-datadog-test
+  type: exitcode-stdio-1.0
+  main-is: Spec.hs
+  other-modules:
+      Arbor.Monad.MetricSpec
+      Arbor.Monad.UdpServer
+      Arbor.Monad.Metric
+      Arbor.Monad.Metric.Datadog
+      Arbor.Monad.Metric.Generic
+      Arbor.Monad.Metric.Type
+      Paths_arbor_monad_metric_datadog
+  hs-source-dirs:
+      test
+      src
+  default-extensions: BangPatterns FlexibleContexts FlexibleInstances GeneralizedNewtypeDeriving MultiParamTypeClasses OverloadedStrings TupleSections
+  ghc-options: -threaded -rtsopts -with-rtsopts=-N
+  build-depends:
+      arbor-datadog
+    , arbor-monad-metric-datadog
+    , base >=4.7 && <5
+    , bytestring
+    , containers
+    , generic-lens
+    , hedgehog
+    , hspec
+    , hw-hspec-hedgehog
+    , lens
+    , mtl
+    , network
+    , resourcet
+    , stm
+    , text
+    , transformers
+  default-language: Haskell2010
