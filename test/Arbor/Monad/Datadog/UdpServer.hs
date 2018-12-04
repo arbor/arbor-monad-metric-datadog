@@ -1,5 +1,6 @@
-module Arbor.Monad.UdpServer
-  ( runUdpServer
+module Arbor.Monad.Datadog.UdpServer
+  ( createUdpServer
+  , runUdpServer
   , UdpHandler
   ) where
 
@@ -10,11 +11,10 @@ import qualified Network.Socket.ByteString as BS
 
 type UdpHandler = SockAddr -> BS.ByteString -> IO ()
 
-runUdpServer :: ()
-  => String       -- ^ Port number or name; 514 is default
-  -> UdpHandler  -- ^ Function to handle incoming messages
-  -> IO ()
-runUdpServer port handler = withSocketsDo $ do
+createUdpServer :: ()
+    => String       -- ^ Port number or name; 514 is default
+    -> IO Socket
+createUdpServer port = withSocketsDo $ do
   addrinfos <- getAddrInfo
               (Just (defaultHints {addrFlags = [AI_PASSIVE]}))
               Nothing (Just port)
@@ -23,8 +23,13 @@ runUdpServer port handler = withSocketsDo $ do
   sock <- socket (addrFamily serveraddr) Datagram defaultProtocol
 
   bind sock (addrAddress serveraddr)
+  return sock
 
-  procMessages sock
+runUdpServer :: ()
+  => Socket
+  -> UdpHandler
+  -> IO ()
+runUdpServer sock handler = withSocketsDo $ procMessages sock
   where procMessages sock = do
           (msg, addr) <- BS.recvFrom sock 1024
           handler addr msg
