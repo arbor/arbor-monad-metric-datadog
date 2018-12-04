@@ -109,7 +109,6 @@ jobs:
 
       - deploy:
           command: |
-            hpack
             if [ "$CIRCLE_PROJECT_USERNAME" == "arbor" ]; then
               if [[ "$CIRCLE_BRANCH" == master ]]; then
                 when tag autotag
@@ -141,7 +140,6 @@ jobs:
 
       - deploy:
           command: |
-            hpack
             if [ "$CIRCLE_PROJECT_USERNAME" == "arbor" ]; then
               if [[ "$CIRCLE_BRANCH" == master ]]; then
                 when tag autotag
