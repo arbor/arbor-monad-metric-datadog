@@ -74,6 +74,6 @@ __pycache*
 .librdkafka
 
 /dist-newstyle
-/.ghc.environment.x86_64-darwin-8.2.2
+/.ghc.environment.x86_64-darwin-*
 /cabal.project.local
 
