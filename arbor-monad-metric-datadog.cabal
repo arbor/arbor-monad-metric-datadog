@@ -1,5 +1,5 @@
 name:           arbor-monad-metric-datadog
-version:        0.0.1
+version:        0.0.2
 description:    Please see the README on Github at <https://github.com/arbor/arbor-monad-metric-datadog#readme>
 category:       Services
 homepage:       https://github.com/arbor/arbor-monad-metric-datadog#readme
