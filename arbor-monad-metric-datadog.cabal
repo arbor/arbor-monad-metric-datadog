@@ -1,7 +1,8 @@
 name:           arbor-monad-metric-datadog
 version:        0.0.2
 description:    Please see the README on Github at <https://github.com/arbor/arbor-monad-metric-datadog#readme>
-category:       Services
+synopsis:       Metric library backend for datadog.
+category:       Metrics
 homepage:       https://github.com/arbor/arbor-monad-metric-datadog#readme
 bug-reports:    https://github.com/arbor/arbor-monad-metric-datadog/issues
 author:         Arbor Networks
@@ -48,9 +49,10 @@ test-suite arbor-monad-metric-datadog-test
   type: exitcode-stdio-1.0
   main-is: Spec.hs
   other-modules:
-      Arbor.Monad.MetricSpec
-      Arbor.Monad.UdpServer
       Arbor.Monad.Metric.Datadog
+      Arbor.Monad.Datadog.MetricApp
+      Arbor.Monad.Datadog.MetricSpec
+      Arbor.Monad.Datadog.UdpServer
       Paths_arbor_monad_metric_datadog
   hs-source-dirs:
       test
@@ -64,11 +66,14 @@ test-suite arbor-monad-metric-datadog-test
     , arbor-monad-metric-datadog
     , bytestring                    >= 0.10.8   && < 0.11
     , containers                    >= 0.5.10   && < 0.6
+    , exceptions
+    , fast-logger
     , generic-lens                  >= 1.1.0    && < 1.2
     , hedgehog                      >= 0.6.1    && < 0.7
     , hspec                         >= 2.6.0    && < 2.7
     , hw-hspec-hedgehog             >= 0.1.0.4  && < 0.2
     , lens                          >= 4.17     && < 4.18
+    , monad-logger
     , mtl                           >= 2.2.2    && < 2.3
     , network                       >= 2.8.0    && < 2.9
     , resourcet                     >= 1.2.2    && < 1.3
