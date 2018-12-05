@@ -1,7 +1,8 @@
 name:           arbor-monad-metric-datadog
 version:        0.0.1
 description:    Please see the README on Github at <https://github.com/arbor/arbor-monad-metric-datadog#readme>
-category:       Services
+synopsis:       Metric library backend for datadog.
+category:       Metrics
 homepage:       https://github.com/arbor/arbor-monad-metric-datadog#readme
 bug-reports:    https://github.com/arbor/arbor-monad-metric-datadog/issues
 author:         Arbor Networks
