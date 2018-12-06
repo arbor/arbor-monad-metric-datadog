@@ -27,7 +27,7 @@
 #
 
 - functions:
-  - { name: show, within: [App.Show] }
+  - { name: show, within: [Arbor.Monad.Metric.Datadog.Internal.Show] }
 
 # Add custom hints for this project
 #
