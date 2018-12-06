@@ -23,6 +23,8 @@ source-repository head
 library
   exposed-modules:
       Arbor.Monad.Metric.Datadog
+      Arbor.Monad.Metric.Datadog.Internal
+      Arbor.Monad.Metric.Datadog.Internal.Show
   other-modules:
       Paths_arbor_monad_metric_datadog
   hs-source-dirs:
@@ -32,7 +34,7 @@ library
   build-depends:
       base                          >= 4.7      && < 5
     , arbor-datadog                 >= 0.0.0    && < 0.1
-    , arbor-monad-metric            >= 0.0.2    && < 0.1
+    , arbor-monad-metric            >= 1.1.0    && < 1.2
     , bytestring                    >= 0.10.8   && < 0.11
     , containers                    >= 0.5.10   && < 0.6
     , generic-lens                  >= 1.0.0.2  && < 1.2
@@ -49,10 +51,12 @@ test-suite arbor-monad-metric-datadog-test
   type: exitcode-stdio-1.0
   main-is: Spec.hs
   other-modules:
-      Arbor.Monad.Metric.Datadog
       Arbor.Monad.Datadog.MetricApp
       Arbor.Monad.Datadog.MetricSpec
       Arbor.Monad.Datadog.UdpServer
+      Arbor.Monad.Metric.Datadog
+      Arbor.Monad.Metric.Datadog.Internal
+      Arbor.Monad.Metric.Datadog.Internal.Show
       Paths_arbor_monad_metric_datadog
   hs-source-dirs:
       test
@@ -62,7 +66,7 @@ test-suite arbor-monad-metric-datadog-test
   build-depends:
       base                          >= 4.7      && < 5
     , arbor-datadog                 >= 0.0.0    && < 0.1
-    , arbor-monad-metric            >= 0.0.2    && < 0.1
+    , arbor-monad-metric
     , arbor-monad-metric-datadog
     , bytestring                    >= 0.10.8   && < 0.11
     , containers                    >= 0.5.10   && < 0.6
