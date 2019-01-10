@@ -1,3 +1,4 @@
+{-# LANGUAGE RankNTypes           #-}
 {-# LANGUAGE DataKinds           #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeApplications    #-}
@@ -9,13 +10,15 @@ module Arbor.Monad.Metric.Datadog
 
 import Arbor.Monad.Metric.Datadog.Internal
 import Arbor.Monad.Metric.Datadog.Internal.Show
-import Arbor.Monad.Metric.Type                  (Counter, Gauge, MonadMetrics, getMetricMapTVar)
+import Arbor.Monad.Metric.Type                  (Counter, Gauge, GaugeCounter, MonadMetrics, getMetricMapTVar, Tag)
 import Control.Lens
 import Control.Monad.IO.Class
 import Data.Foldable
 import Data.Generics.Product.Any
 import Data.Proxy
 import Data.Semigroup                           ((<>))
+import Data.Generics.Product.Fields
+
 
 import qualified Arbor.Monad.Metric        as C
 import qualified Arbor.Network.StatsD      as S
@@ -28,29 +31,29 @@ import qualified Data.Text                 as T
 logStats :: (S.MonadStats m, MonadMetrics m) => m ()
 logStats = do
   tCounterMap <- getMetricMapTVar
-  (counters, _)  <- liftIO . STM.atomically $ STM.swapTVar tCounterMap M.empty >>= C.extractValues (Proxy @Counter)
-  traverse_ S.sendMetric $ mkMetricsCounter counters
+  (counters, _) <- liftIO . STM.atomically $ STM.swapTVar tCounterMap M.empty >>= C.extractValues (Proxy @Counter)
+  traverse_ S.sendMetric $ mkMetrics S.addCounter counters
 
   tGaugeMap <- getMetricMapTVar
-  (gauge, _)  <- liftIO . STM.atomically $ STM.swapTVar tGaugeMap M.empty >>= C.extractValues (Proxy @Gauge)
-  traverse_ S.sendMetric $ mkMetricsGauge gauge
+  (gauges, _)   <- liftIO . STM.atomically $ STM.swapTVar tGaugeMap M.empty >>= C.extractValues (Proxy @Gauge)
+  traverse_ S.sendMetric $ mkMetrics S.gauge gauges
+
+  tGaugeCounterMap <- getMetricMapTVar
+  (gaugeCounters, _) <- liftIO . STM.atomically $ STM.swapTVar tGaugeCounterMap  M.empty >>= C.extractValues (Proxy @GaugeCounter)
+  traverse_ S.sendMetric $ mkMetrics S.gauge gaugeCounters
 
 metricName :: String -> T.Text
 metricName n = T.replace " " "_" (T.pack n)
 
--- create metrics for each counter
-mkMetricsGauge :: [(Gauge, Double)] -> [S.Metric]
-mkMetricsGauge = fmap (uncurry mkGauge)
-  where mkGauge :: Gauge -> Double -> S.Metric
-        mkGauge g v = S.gauge (Z.MetricName (metricName (T.unpack name))) id v & the @"tags" .~ (toStat <$> tags)
-          where name = g ^. the @"name"
-                tags = g ^. the @"tags" & S.toList
-
--- create metrics for each counter
-mkMetricsCounter :: [(Counter, Int)] -> [S.Metric]
-mkMetricsCounter = fmap (uncurry mkCounter)
-  where mkCounter :: Counter -> Int -> S.Metric
-        mkCounter g v = S.addCounter (Z.MetricName (metricName (T.unpack name))) id v & the @"tags" .~ (toStat <$> tags)
+mkMetrics :: forall g v. ()
+  => HasField "name" g g T.Text T.Text
+  => HasField "tags" g g (S.Set Tag) (S.Set Tag)
+  => (Z.MetricName -> (v -> v) -> v -> Z.Metric)
+  -> [(g, v)]
+  -> [S.Metric]
+mkMetrics m = fmap (uncurry mk)
+  where mk :: g -> v -> S.Metric
+        mk g val = m (Z.MetricName (metricName (T.unpack name))) id val & the @"tags" .~ (toStat <$> tags)
           where name = g ^. the @"name"
                 tags = g ^. the @"tags" & S.toList
 
