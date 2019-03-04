@@ -8,12 +8,12 @@ shift
 
 case "$cmd" in
   build)
-    cabal new-build --enabled-tests \
+    cabal v2-build --enable-tests \
       $CABAL_FLAGS "$@"
     ;;
 
   test)
-    cabal new-test --enable-tests \
+    cabal v2-test --enable-tests \
       $CABAL_FLAGS "$@"
     ;;
 esac
