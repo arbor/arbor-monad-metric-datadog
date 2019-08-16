@@ -60,7 +60,8 @@ test-suite arbor-monad-metric-datadog-test
       test
       src
   default-extensions: BangPatterns FlexibleContexts FlexibleInstances GeneralizedNewtypeDeriving MultiParamTypeClasses OverloadedStrings TupleSections
-  ghc-options: -threaded -rtsopts -with-rtsopts=-N
+  ghc-options:        -threaded -rtsopts -with-rtsopts=-N
+  build-tools:        hspec-discover
   build-depends:
       base                          >= 4.7      && < 5
     , arbor-datadog                 >= 0.1      && < 0.2
