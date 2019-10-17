@@ -5,6 +5,7 @@
 module Arbor.Monad.Metric.Datadog
   ( logStats
   , mkEvent
+  , S.MonadStats (..)
   ) where
 
 import Arbor.Monad.Metric.Datadog.Internal
