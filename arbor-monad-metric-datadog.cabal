@@ -1,7 +1,7 @@
 cabal-version:  2.2
 
 name:                   arbor-monad-metric-datadog
-version:                1.1.1
+version:                1.1.2
 description:            Please see the README on Github at <https://github.com/arbor/arbor-monad-metric-datadog#readme>
 synopsis:               Metric library backend for datadog.
 category:               Metrics
